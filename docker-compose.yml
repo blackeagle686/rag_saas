@@ -1,0 +1,116 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: ragaas-postgres
+    environment:
+      POSTGRES_DB: ragaas
+      POSTGRES_USER: ragaas
+      POSTGRES_PASSWORD: ragaas_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ragaas"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Redis ──
+  redis:
+    image: redis:7-alpine
+    container_name: ragaas-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Qdrant Vector DB ──
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ragaas-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrantdata:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6333/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI Application ──
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ragaas-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ragaas:ragaas_secret@postgres:5432/ragaas
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_HOST: qdrant
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - .:/app
+      - storagedata:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    command: >
+      uvicorn api.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+
+  # ── Celery Worker ──
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ragaas-worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ragaas:ragaas_secret@postgres:5432/ragaas
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_HOST: qdrant
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - .:/app
+      - storagedata:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    command: >
+      celery -A workers.celery_app worker
+      --loglevel=info
+      --concurrency=2
+
+volumes:
+  pgdata:
+  redisdata:
+  qdrantdata:
+  storagedata:
