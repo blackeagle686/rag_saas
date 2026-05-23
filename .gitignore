@@ -1,0 +1,15 @@
+venv/
+smart_git.py
+db/
+*.db/
+*.db3
+*.sqlite3
+*.sqlite
+*.db
+media/
+__pycache__/
+*.pyc
+*.log
+.local.env
+*.sqlite
+chroma_db/
