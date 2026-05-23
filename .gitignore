@@ -1,15 +1,57 @@
-venv/
-smart_git.py
-db/
-*.db/
-*.db3
-*.sqlite3
-*.sqlite
-*.db
-media/
+# ── Python ──
 __pycache__/
-*.pyc
-*.log
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtual Environments ──
+venv/
+.venv/
+env/
+
+# ── Environment Files ──
+.env
 .local.env
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Database (local) ──
+*.db
+*.db3
 *.sqlite
+*.sqlite3
+
+# ── Storage (local dev uploads) ──
+storage/
+media/
+
+# ── Logs ──
+*.log
+logs/
+
+# ── Docker volumes ──
+pgdata/
+redisdata/
+qdrantdata/
+
+# ── Testing ──
+.pytest_cache/
+htmlcov/
+.coverage
+
+# ── Mypy ──
+.mypy_cache/
+
+# ── Misc ──
+smart_git.py
 chroma_db/
+.DS_Store
+Thumbs.db
