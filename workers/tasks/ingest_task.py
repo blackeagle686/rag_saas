@@ -360,6 +360,17 @@ def _generate_embeddings(
     if mock:
         return [[0.0] * dimensions for _ in chunks]
 
+    from api.config import get_settings
+    settings = get_settings()
+
+    if settings.app_env == "development":
+        try:
+            from core.embeddings import embed_batch_locally
+            return embed_batch_locally(chunks, is_query=False)
+        except Exception as e:
+            logger.error("local_batch_embedding_failed", error=str(e))
+            raise
+
     import openai
 
     client = openai.OpenAI(api_key=api_key)
