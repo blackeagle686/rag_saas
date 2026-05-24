@@ -43,3 +43,25 @@ celery_app.conf.update(
 
 # Auto-discover tasks in workers.tasks package
 celery_app.autodiscover_tasks(["workers.tasks"])
+
+
+# == Worker Initialization Hooks ==
+
+
+@celery_app.on_after_configure.connect
+def init_embedding_model(sender, **kwargs):  # type: ignore[no-untyped-def]
+    """Pre-initialize the local embedding model when the worker starts.
+
+    This ensures the model is downloaded and loaded into memory
+    before any tasks are processed, avoiding slow first-request.
+    """
+    if settings.app_env == "development" and not settings.mock_llm:
+        try:
+            from core.embedding_service import EmbeddingService
+
+            EmbeddingService().initialize()
+        except Exception:
+            from core.logging import get_logger
+
+            logger = get_logger("celery_init")
+            logger.warning("embedding_model_init_failed", exc_info=True)

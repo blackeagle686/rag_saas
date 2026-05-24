@@ -20,7 +20,7 @@ from api.middleware.security_headers import SecurityHeadersMiddleware
 from api.routers import health, keys, namespaces, ingest, query, tenant
 from api.routers.namespaces import documents_router
 from core.exceptions import RAGaaSError, RateLimitExceededError
-from core.logging import setup_logging
+from core.logging import setup_logging, get_logger
 
 
 @asynccontextmanager
@@ -39,6 +39,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from pathlib import Path
 
         Path(settings.local_storage_path).mkdir(parents=True, exist_ok=True)
+
+    # Pre-initialize the local embedding model so the first
+    # upload/query doesn't trigger a download.
+    if settings.app_env == "development" and not settings.mock_llm:
+        try:
+            from core.embedding_service import EmbeddingService
+
+            EmbeddingService().initialize()
+        except Exception:
+            logger = get_logger("lifespan")
+            logger.warning("embedding_model_init_failed", exc_info=True)
 
     yield
 

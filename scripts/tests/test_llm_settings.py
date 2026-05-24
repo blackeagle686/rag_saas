@@ -6,7 +6,7 @@ BASE_URL = "http://localhost:8000"
 
 async def test():
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         # 1. Get initial settings
         print("1. Fetching initial settings...")
         r = await client.get(f"{BASE_URL}/v1/tenant/settings", headers=headers)

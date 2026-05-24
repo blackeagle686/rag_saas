@@ -192,7 +192,16 @@ run_services() {
     echo -e "${YELLOW}   ⚠️  Seed task encountered issues (check logs/seed.log).${RESET}"
   fi
 
-  # 4. Start FastAPI Backend
+  # 4. Download & Initialize Local Embedding Model (first time only)
+  echo -e "${CYAN}[*] Initializing local embedding model (Qwen/Qwen3-Embedding-0.6B)...${RESET}"
+  $VENV_PYTHON -m scripts.download_embedding_model > "$LOG_DIR/model_download.log" 2>&1
+  if [ $? -eq 0 ]; then
+    echo -e "${GREEN}   ✓ Embedding model ready.${RESET}"
+  else
+    echo -e "${YELLOW}   ⚠️  Embedding model init had issues (check logs/model_download.log).${RESET}"
+  fi
+
+  # 5. Start FastAPI Backend
   if is_running "$PID_DIR/fastapi.pid"; then
     echo -e "${YELLOW}⚠️  FastAPI is already running (PID: $(cat "$PID_DIR/fastapi.pid")).${RESET}"
   else
@@ -202,7 +211,7 @@ run_services() {
     echo -e "${GREEN}   ✓ FastAPI running in background.${RESET}"
   fi
 
-  # 5. Start Celery Worker
+  # 6. Start Celery Worker
   if is_running "$PID_DIR/celery.pid"; then
     echo -e "${YELLOW}⚠️  Celery worker is already running (PID: $(cat "$PID_DIR/celery.pid")).${RESET}"
   else
@@ -212,7 +221,7 @@ run_services() {
     echo -e "${GREEN}   ✓ Celery worker running in background.${RESET}"
   fi
 
-  # 6. Start Frontend Web Server (Port 5000)
+  # 7. Start Frontend Web Server (Port 5000)
   if is_running "$PID_DIR/frontend.pid"; then
     echo -e "${YELLOW}⚠️  Frontend server is already running (PID: $(cat "$PID_DIR/frontend.pid")).${RESET}"
   else
