@@ -18,7 +18,7 @@ from api.schemas.ingest import IngestRequest, IngestResponse, IngestStatusRespon
 from api.services.ingest_service import IngestService
 from db.engine import get_db_session
 from db.models.tenant import Tenant
-
+from core.exceptions import ValidationError
 router = APIRouter(prefix="/v1", tags=["Ingestion"])
 
 
@@ -50,7 +50,7 @@ async def ingest_document(
         try:
             parsed_metadata = json.loads(metadata)
         except json.JSONDecodeError:
-            from core.exceptions import ValidationError
+            
 
             raise ValidationError(detail="'metadata' must be valid JSON.")
 
