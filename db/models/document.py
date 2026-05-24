@@ -60,6 +60,12 @@ class Document(TimestampMixin, Base):
         default=0,
         nullable=False
     )
+    
+    image_inside: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
     s3_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
