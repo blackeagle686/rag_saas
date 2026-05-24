@@ -23,7 +23,8 @@ class FileType(str, enum.Enum):
     DOCX = "docx"
     TXT = "txt"
     JSON = "json"
-    
+    XML = "xml"
+    C
 
 class Document(TimestampMixin, Base):
     __tablename__ = "documents"
