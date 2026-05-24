@@ -47,7 +47,10 @@ class Document(TimestampMixin, Base):
         index=True,
     )
     chunk_count: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False)
+        Integer, 
+        default=0,
+        nullable=False
+        )
     s3_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
