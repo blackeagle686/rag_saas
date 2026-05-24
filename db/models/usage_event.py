@@ -30,15 +30,25 @@ class UsageEvent(TimestampMixin, Base):
         String(20),
         nullable=False,
         index=True)
-
     tokens_used: Mapped[int] = mapped_column(
         Integer,
-         default=0, nullable=False)
-    query_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    model_used: Mapped[str | None] = mapped_column(String(50), nullable=True)
+        default=0,
+        nullable=False
+    )
+    query_ms: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+    model_used: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True
+    )
 
     # Relationships
-    tenant = relationship("Tenant", back_populates="usage_events")
+    tenant = relationship(
+        "Tenant",
+        back_populates="usage_events"
+    )
 
     def __repr__(self) -> str:
         return f"<UsageEvent {self.event_type} tokens={self.tokens_used}>"
