@@ -35,7 +35,7 @@ class RAGaaSError(Exception):
         return payload
 
 
-# ── Authentication ──
+# == Authentication ==
 
 
 class InvalidAPIKeyError(RAGaaSError):
@@ -50,7 +50,7 @@ class MissingAPIKeyError(RAGaaSError):
     detail = "Authorization header with a valid API key is required."
 
 
-# ── Rate Limiting ──
+# == Rate Limiting ==
 
 
 class RateLimitExceededError(RAGaaSError):
@@ -63,7 +63,7 @@ class RateLimitExceededError(RAGaaSError):
         super().__init__(**kwargs)
 
 
-# ── Resource Errors ──
+# == Resource Errors ==
 
 
 class NotFoundError(RAGaaSError):
@@ -78,7 +78,7 @@ class ConflictError(RAGaaSError):
     detail = "A resource with that identifier already exists."
 
 
-# ── Validation ──
+# == Validation ==
 
 
 class ValidationError(RAGaaSError):
@@ -99,7 +99,7 @@ class UnsupportedFileTypeError(RAGaaSError):
     detail = "The uploaded file type is not supported."
 
 
-# ── Authorization ──
+# == Authorization ==
 
 
 class TenantSuspendedError(RAGaaSError):
@@ -114,7 +114,7 @@ class PlanLimitExceededError(RAGaaSError):
     detail = "You have exceeded your plan's usage limits. Please upgrade."
 
 
-# ── Service Errors ──
+# == Service Errors ==
 
 
 class ExternalServiceError(RAGaaSError):

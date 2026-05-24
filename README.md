@@ -42,9 +42,9 @@ Client App
 [Cloudflare DNS + WAF]
     │
     ▼
-[FastAPI Gateway]  ──── Redis (rate limiting + cache)
+[FastAPI Gateway]  ==== Redis (rate limiting + cache)
     │
-    ├── POST /ingest ──► [Celery Worker]
+    ├== POST /ingest ==► [Celery Worker]
     │                         │
     │                    [S3 Raw Storage]
     │                         │
@@ -56,7 +56,7 @@ Client App
     │                         │
     │                   [PostgreSQL metadata]
     │
-    └── POST /query ──► [Retriever (Qdrant top-k)]
+    └== POST /query ==► [Retriever (Qdrant top-k)]
                               │
                         [Context Builder]
                               │
@@ -72,13 +72,13 @@ Client App
 - Initialize Git monorepo with the following structure:
   ```
   ragaas/
-  ├── api/             # FastAPI app
-  ├── workers/         # Celery ingestion workers
-  ├── sdk/             # Optional Python SDK (later)
-  ├── dashboard/       # React frontend (later)
-  ├── infra/           # Docker, docker-compose, Terraform
-  ├── scripts/         # Dev utilities
-  └── docs/            # API documentation source
+  ├== api/             # FastAPI app
+  ├== workers/         # Celery ingestion workers
+  ├== sdk/             # Optional Python SDK (later)
+  ├== dashboard/       # React frontend (later)
+  ├== infra/           # Docker, docker-compose, Terraform
+  ├== scripts/         # Dev utilities
+  └== docs/            # API documentation source
   ```
 - Set up `pyproject.toml` with dependencies: fastapi, uvicorn, sqlalchemy, asyncpg, celery, redis, qdrant-client, openai, stripe, pydantic, python-jose, passlib, boto3
 - Configure `.env` with environment variable schema and `.env.example` for contributors

@@ -1,4 +1,4 @@
-# ── Python ──
+# == Python ==
 __pycache__/
 *.py[cod]
 *$py.class
@@ -8,49 +8,49 @@ dist/
 build/
 *.egg
 
-# ── Virtual Environments ──
+# == Virtual Environments ==
 venv/
 .venv/
 env/
 
-# ── Environment Files ──
+# == Environment Files ==
 .env
 .local.env
 
-# ── IDE ──
+# == IDE ==
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# ── Database (local) ──
+# == Database (local) ==
 *.db
 *.db3
 *.sqlite
 *.sqlite3
 
-# ── Storage (local dev uploads) ──
+# == Storage (local dev uploads) ==
 storage/
 media/
 
-# ── Logs ──
+# == Logs ==
 *.log
 logs/
 
-# ── Docker volumes ──
+# == Docker volumes ==
 pgdata/
 redisdata/
 qdrantdata/
 
-# ── Testing ──
+# == Testing ==
 .pytest_cache/
 htmlcov/
 .coverage
 
-# ── Mypy ──
+# == Mypy ==
 .mypy_cache/
 
-# ── Misc ──
+# == Misc ==
 smart_git.py
 chroma_db/
 .DS_Store

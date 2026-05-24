@@ -65,7 +65,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # ── Exception Handlers ──
+    # == Exception Handlers ==
 
     @app.exception_handler(RAGaaSError)
     async def ragaas_error_handler(request: Request, exc: RAGaaSError) -> JSONResponse:
@@ -98,7 +98,7 @@ def create_app() -> FastAPI:
             },
         )
 
-    # ── Middleware (order matters: last added = first executed) ──
+    # == Middleware (order matters: last added = first executed) ==
 
     # CORS
     app.add_middleware(
@@ -116,7 +116,7 @@ def create_app() -> FastAPI:
     # Audit logging
     app.add_middleware(AuditLogMiddleware)
 
-    # ── Routers ──
+    # == Routers ==
 
     app.include_router(health.router)
     app.include_router(keys.router)

@@ -1,4 +1,4 @@
-# ── Stage 1: Builder ──
+# == Stage 1: Builder ==
 FROM python:3.11-slim AS builder
 
 WORKDIR /build
@@ -7,7 +7,7 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --prefix=/install .
 
-# ── Stage 2: Runtime ──
+# == Stage 2: Runtime ==
 FROM python:3.11-slim AS runtime
 
 # Security: non-root user

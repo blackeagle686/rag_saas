@@ -15,7 +15,7 @@ from pathlib import PurePosixPath
 import bcrypt
 
 
-# ── API Key Generation ──
+# == API Key Generation ==
 
 _KEY_ALPHABET = string.ascii_letters + string.digits
 _KEY_LENGTH = 32  # Characters after prefix
@@ -53,7 +53,7 @@ def verify_api_key(raw_key: str, stored_hash: str) -> bool:
         return False
 
 
-# ── Input Sanitization ──
+# == Input Sanitization ==
 
 # Namespace: alphanumeric, hyphens, underscores only, max 64 chars
 _NAMESPACE_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9\-_]{0,63}$")

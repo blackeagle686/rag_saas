@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  # ── PostgreSQL ──
+  # == PostgreSQL ==
   postgres:
     image: postgres:16-alpine
     container_name: ragaas-postgres
@@ -19,7 +19,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── Redis ──
+  # == Redis ==
   redis:
     image: redis:7-alpine
     container_name: ragaas-redis
@@ -33,7 +33,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── Qdrant Vector DB ──
+  # == Qdrant Vector DB ==
   qdrant:
     image: qdrant/qdrant:latest
     container_name: ragaas-qdrant
@@ -48,7 +48,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── FastAPI Application ──
+  # == FastAPI Application ==
   api:
     build:
       context: .
@@ -80,7 +80,7 @@ services:
       --port 8000
       --reload
 
-  # ── Celery Worker ──
+  # == Celery Worker ==
   worker:
     build:
       context: .

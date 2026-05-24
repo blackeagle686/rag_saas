@@ -23,43 +23,43 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── Application ──
+    # == Application ==
     app_name: str = "ragaas"
     app_env: str = "development"
     debug: bool = True
     log_level: str = "INFO"
 
-    # ── API Server ──
+    # == API Server ==
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_workers: int = 1
 
-    # ── PostgreSQL ──
+    # == PostgreSQL ==
     database_url: str = "postgresql+asyncpg://ragaas:ragaas_secret@localhost:5432/ragaas"
     database_pool_size: int = 20
     database_max_overflow: int = 10
 
-    # ── Redis ──
+    # == Redis ==
     redis_url: str = "redis://localhost:6379/0"
 
-    # ── Qdrant ──
+    # == Qdrant ==
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
     qdrant_api_key: str | None = None
 
-    # ── OpenAI (Embeddings) ──
+    # == OpenAI (Embeddings) ==
     openai_api_key: str = ""
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
 
-    # ── LLM ──
+    # == LLM ==
     llm_provider: str = "openai"  # openai | anthropic | mock
     openai_llm_model: str = "gpt-4o"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
     mock_llm: bool = False
 
-    # ── Storage ──
+    # == Storage ==
     storage_backend: str = "local"  # local | s3
     s3_bucket_name: str = "ragaas-files"
     s3_region: str = "us-east-1"
@@ -67,21 +67,21 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
     local_storage_path: str = "./storage"
 
-    # ── Celery ──
+    # == Celery ==
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
 
-    # ── Security ──
+    # == Security ==
     api_key_prefix: str = "rgs_live_"
     cors_origins: list[str] = Field(default=["http://localhost:3000"])
 
-    # ── Rate Limits (requests per second by plan) ──
+    # == Rate Limits (requests per second by plan) ==
     rate_limit_starter: int = 10
     rate_limit_growth: int = 50
     rate_limit_scale: int = 200
     rate_limit_enterprise: int = 500
 
-    # ── Ingestion Limits ──
+    # == Ingestion Limits ==
     max_file_size_mb: int = 50
     max_query_length: int = 2000
     chunk_size_tokens: int = 512

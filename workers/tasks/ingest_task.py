@@ -138,7 +138,7 @@ def process_document(
         return {"status": "failed", "error": str(exc)}
 
 
-# ── Text Extraction ──
+# == Text Extraction ==
 
 
 def _read_file(storage_key: str, settings) -> bytes:  # type: ignore[no-untyped-def]
@@ -224,7 +224,7 @@ def _extract_html(content: bytes) -> str:
     return soup.get_text(separator="\n", strip=True)
 
 
-# ── Text Processing ──
+# == Text Processing ==
 
 
 def _clean_text(text: str) -> str:
@@ -378,7 +378,7 @@ def _generate_embeddings(
     return all_embeddings
 
 
-# ── Qdrant ──
+# == Qdrant ==
 
 
 def _upsert_to_qdrant(
@@ -439,7 +439,7 @@ def _upsert_to_qdrant(
         client.upsert(collection_name=collection_name, points=batch)
 
 
-# ── DB Sync Helpers ──
+# == DB Sync Helpers ==
 # These use synchronous SQLAlchemy since Celery tasks are sync
 
 
