@@ -48,14 +48,15 @@ async def test():
         
         ns_list = namespaces.get("namespaces", [])
         if ns_list:
-            ns_id = ns_list[0]["id"]
-            print(f"\n5. Performing RAG query on namespace {ns_id}...")
+            ns_name = ns_list[0]["name"]
+            print(f"\n5. Performing RAG query on namespace {ns_name}...")
             query_data = {
+                "namespace": ns_name,
                 "query": "hello, test custom LLM settings",
                 "top_k": 3,
                 "model": "claude-3-5-sonnet-20241022"
             }
-            r = await client.post(f"{BASE_URL}/v1/namespaces/{ns_id}/query", json=query_data, headers=headers)
+            r = await client.post(f"{BASE_URL}/v1/query", json=query_data, headers=headers)
             print("Query Status:", r.status_code)
             print("Query Response:", r.json())
 
