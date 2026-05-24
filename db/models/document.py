@@ -43,5 +43,6 @@ class Document(TimestampMixin, Base):
     # Relationships
     namespace = relationship("Namespace", back_populates="documents")
 
+
     def __repr__(self) -> str:
         return f"<Document {self.filename} status={self.status}>"
