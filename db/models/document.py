@@ -18,6 +18,10 @@ class DocumentStatus(str, enum.Enum):
     READY = "ready"
     FAILED = "failed"
 
+class FileType(str, enum.Enum):
+    PDF = "pdf"
+    DOCX = "docx"
+    TXT = "txt"
 
 class Document(TimestampMixin, Base):
     __tablename__ = "documents"
