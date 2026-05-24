@@ -345,7 +345,7 @@ def _get_overlap(text: str, overlap_tokens: int, count_tokens) -> str:  # type: 
     return overlap_text.strip()
 
 
-# ── Embedding ──
+# == Embedding ==
 
 
 def _generate_embeddings(
