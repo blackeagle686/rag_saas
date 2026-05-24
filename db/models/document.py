@@ -38,6 +38,7 @@ class Document(TimestampMixin, Base):
         nullable=False,
         index=True,
     )
+    
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_type: Mapped[FileType] = mapped_column(String(10), nullable=False)
     status: Mapped[DocumentStatus] = mapped_column(
