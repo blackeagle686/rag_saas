@@ -46,8 +46,9 @@ async def test():
         namespaces = r.json()
         print("Namespaces:", namespaces)
         
-        if namespaces:
-            ns_id = namespaces[0]["id"]
+        ns_list = namespaces.get("namespaces", [])
+        if ns_list:
+            ns_id = ns_list[0]["id"]
             print(f"\n5. Performing RAG query on namespace {ns_id}...")
             query_data = {
                 "query": "hello, test custom LLM settings",
