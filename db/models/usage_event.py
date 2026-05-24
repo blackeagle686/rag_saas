@@ -30,7 +30,10 @@ class UsageEvent(TimestampMixin, Base):
         String(20),
         nullable=False,
         index=True)
-    tokens_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    tokens_used: Mapped[int] = mapped_column(
+        Integer,
+         default=0, nullable=False)
     query_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     model_used: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
