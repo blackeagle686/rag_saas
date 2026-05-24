@@ -50,7 +50,7 @@ class Document(TimestampMixin, Base):
         Integer, 
         default=0,
         nullable=False
-        )
+    )
     s3_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
