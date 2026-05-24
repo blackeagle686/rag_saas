@@ -104,10 +104,18 @@ class QueryService:
         )
 
     async def _embed_query(self, query: str) -> list[float]:
-        """Embed the query using OpenAI embeddings."""
+        """Embed the query using OpenAI or local embeddings."""
         if self.settings.mock_llm:
             # Return mock embedding for testing
             return [0.0] * self.settings.embedding_dimensions
+
+        if self.settings.app_env == "development":
+            try:
+                from core.embeddings import embed_text_locally
+                return embed_text_locally(query, is_query=True)
+            except Exception as e:
+                logger.error("local_embedding_failed", error=str(e))
+                raise ExternalServiceError(detail=f"Local embedding service error: {e}")
 
         try:
             import openai
