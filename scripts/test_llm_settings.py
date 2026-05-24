@@ -35,7 +35,7 @@ async def test():
         print("Response:", data)
         assert data["llm_provider"] == "anthropic"
         assert data["llm_model"] == "claude-3-5-sonnet-20241022"
-        assert data["llm_api_key"] == "s...6"  # masked key representation
+        assert data["llm_api_key"] == "sk-ant...3456"  # masked key representation
         assert data["llm_base_url"] == "https://api.anthropic.com"
         
         # 4. Let's do a RAG query to verify local embedding & LLM service logic
