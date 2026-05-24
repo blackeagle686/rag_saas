@@ -69,7 +69,7 @@ const App = {
   route() {
     // Check URL hash for routing
     const hash = window.location.hash.substring(1);
-    const tabs = ['overview', 'namespaces', 'keys', 'playground'];
+    const tabs = ['overview', 'namespaces', 'keys', 'playground', 'settings'];
     if (tabs.includes(hash)) {
       this.switchTab(hash);
     } else {
@@ -108,6 +108,8 @@ const App = {
       window.Keys.loadKeys();
     } else if (tabId === 'overview') {
       window.Namespaces.loadNamespaces();
+    } else if (tabId === 'settings') {
+      if (window.Settings) window.Settings.init();
     }
   },
 
@@ -175,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.Namespaces) window.Namespaces.init();
   if (window.Keys) window.Keys.init();
   if (window.Playground) window.Playground.init();
+  if (window.Settings) window.Settings.init();
 
   // Init App
   window.App.init();

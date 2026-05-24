@@ -4,6 +4,7 @@
 const Playground = {
   init() {
     this.bindEvents();
+    this.updateModelOptions();
   },
 
   bindEvents() {
@@ -138,6 +139,49 @@ const Playground = {
     const chatHistory = document.getElementById('chat-history');
     if (chatHistory) {
       chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+  },
+
+  updateModelOptions(customModel = null) {
+    const modelSelect = document.getElementById('query-model');
+    if (!modelSelect) return;
+
+    modelSelect.innerHTML = '';
+
+    const defaultModels = [
+      { value: 'gpt-4o', label: 'GPT-4o (Default)' },
+      { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet' }
+    ];
+
+    defaultModels.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.value;
+      opt.textContent = m.label;
+      modelSelect.appendChild(opt);
+    });
+
+    if (customModel) {
+      const exists = defaultModels.some(m => m.value === customModel);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = customModel;
+        opt.textContent = `${customModel} (Custom Tenant LLM)`;
+        opt.selected = true;
+        modelSelect.appendChild(opt);
+      }
+    } else {
+      window.api.getSettings().then(settings => {
+        if (settings && settings.llm_model) {
+          const exists = defaultModels.some(m => m.value === settings.llm_model);
+          if (!exists) {
+            const opt = document.createElement('option');
+            opt.value = settings.llm_model;
+            opt.textContent = `${settings.llm_model} (Custom Tenant LLM)`;
+            opt.selected = true;
+            modelSelect.appendChild(opt);
+          }
+        }
+      }).catch(err => console.error('Failed to load custom model for playground:', err));
     }
   }
 };

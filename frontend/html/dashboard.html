@@ -40,6 +40,11 @@
               <span>💬</span> Playground
             </a>
           </li>
+          <li class="menu-item">
+            <a href="#settings" class="menu-link" data-tab="settings">
+              <span>⚙️</span> LLM Settings
+            </a>
+          </li>
         </ul>
       </nav>
 
@@ -298,6 +303,53 @@
           </div>
         </div>
       </section>
+
+      <!-- == TAB: SETTINGS == -->
+      <section id="tab-settings" class="tab-content hidden">
+        <div class="glass-card" style="max-width: 600px;">
+          <header class="header" style="margin-bottom: 1.5rem; padding: 0;">
+            <h1 style="font-size: 1.5rem; font-family: var(--font-display);">LLM Configuration</h1>
+          </header>
+
+          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+            Configure your custom Large Language Model (LLM) credentials. The RAG query engine will use these settings to generate answers based on your documents.
+          </p>
+
+          <div id="settings-alert"></div>
+
+          <form id="llm-settings-form">
+            <div class="form-group">
+              <label for="settings-provider" class="form-label">LLM Provider</label>
+              <select id="settings-provider" class="form-input" required>
+                <option value="openai">OpenAI (or OpenAI Compatible)</option>
+                <option value="anthropic">Anthropic Claude</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="settings-model" class="form-label">Model Name</label>
+              <input type="text" id="settings-model" class="form-input" placeholder="e.g. LongCat-Flash-Lite" required>
+            </div>
+
+            <div class="form-group">
+              <label for="settings-api-key" class="form-label">API Key</label>
+              <input type="text" id="settings-api-key" class="form-input" placeholder="Enter new API key (or leave empty to keep existing)">
+              <div style="margin-top: 0.25rem; font-size: 0.75rem; color: var(--text-muted);" id="settings-api-key-masked">
+                Current key: None
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="settings-base-url" class="form-label">Base URL (Endpoint)</label>
+              <input type="url" id="settings-base-url" class="form-input" placeholder="e.g. https://api.longcat.chat/openai" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="btn-save-settings" style="width: 100%; margin-top: 1rem;">
+              Save Configuration
+            </button>
+          </form>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -408,6 +460,7 @@
   <script src="../js/namespaces.js"></script>
   <script src="../js/keys.js"></script>
   <script src="../js/playground.js"></script>
+  <script src="../js/settings.js"></script>
   <script src="../js/app.js"></script>
 </body>
 </html>

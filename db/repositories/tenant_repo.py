@@ -57,3 +57,20 @@ class TenantRepository:
         stmt = select(Tenant).order_by(Tenant.created_at.desc()).limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def update_llm_settings(
+        self,
+        tenant_id: uuid.UUID,
+        llm_provider: str,
+        llm_model: str,
+        llm_api_key: str,
+        llm_base_url: str,
+    ) -> Tenant | None:
+        tenant = await self.get_by_id(tenant_id)
+        if tenant:
+            tenant.llm_provider = llm_provider
+            tenant.llm_model = llm_model
+            tenant.llm_api_key = llm_api_key
+            tenant.llm_base_url = llm_base_url
+            await self.session.flush()
+        return tenant

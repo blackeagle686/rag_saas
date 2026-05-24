@@ -56,20 +56,116 @@ is_running() {
   return 1 # not running
 }
 
+# Helper: Setup host-level PostgreSQL database & user if docker is not used/fails
+setup_system_postgres() {
+  if ! command -v psql &> /dev/null; then
+    echo -e "${YELLOW}⚠️  'psql' utility not found on host. Skipping host database creation check.${RESET}"
+    return 1
+  fi
+
+  echo -e "${CYAN}[*] Checking local host PostgreSQL setup...${RESET}"
+  local PSQL_CMD=""
+  
+  # Check connection commands
+  if sudo -n -u postgres psql -c "SELECT 1" >/dev/null 2>&1; then
+    PSQL_CMD="sudo -n -u postgres psql"
+  elif sudo -u postgres psql -c "SELECT 1" >/dev/null 2>&1; then
+    PSQL_CMD="sudo -u postgres psql"
+  elif psql -U postgres -c "SELECT 1" >/dev/null 2>&1; then
+    PSQL_CMD="psql -U postgres"
+  else
+    echo -e "${YELLOW}🔑 Admin credentials required to configure PostgreSQL database and user on host system.${RESET}"
+    PSQL_CMD="sudo -u postgres psql"
+  fi
+
+  local db_exists=0
+  local user_exists=0
+
+  # Check db existence
+  if $PSQL_CMD -tAc "SELECT 1 FROM pg_database WHERE datname='ragaas'" | grep -q 1; then
+    db_exists=1
+  fi
+
+  # Check user existence
+  if $PSQL_CMD -tAc "SELECT 1 FROM pg_roles WHERE rolname='ragsass@tlk.com'" | grep -q 1; then
+    user_exists=1
+  fi
+
+  if [ $db_exists -eq 1 ] && [ $user_exists -eq 1 ]; then
+    echo -e "${GREEN}   ✓ Host PostgreSQL database 'ragaas' and user 'ragsass@tlk.com' already exist.${RESET}"
+    return 0
+  fi
+
+  echo -e "${CYAN}[*] Setting up database 'ragaas' and user 'ragsass@tlk.com' on host...${RESET}"
+
+  if [ $user_exists -eq 0 ]; then
+    $PSQL_CMD -c "CREATE USER \"ragsass@tlk.com\" WITH PASSWORD 'ragsaas_tlk_1680';"
+    if [ $? -ne 0 ]; then
+      echo -e "${RED}❌ Failed to create database user 'ragsass@tlk.com'.${RESET}"
+      return 1
+    fi
+    echo -e "${GREEN}   ✓ Created PostgreSQL user 'ragsass@tlk.com'.${RESET}"
+  fi
+
+  if [ $db_exists -eq 0 ]; then
+    $PSQL_CMD -c "CREATE DATABASE ragaas OWNER \"ragsass@tlk.com\";"
+    if [ $? -ne 0 ]; then
+      echo -e "${RED}❌ Failed to create database 'ragaas'.${RESET}"
+      return 1
+    fi
+    echo -e "${GREEN}   ✓ Created database 'ragaas'.${RESET}"
+  fi
+
+  # Apply grants
+  $PSQL_CMD -c "GRANT ALL PRIVILEGES ON DATABASE ragaas TO \"ragsass@tlk.com\";"
+  $PSQL_CMD -d ragaas -c "GRANT ALL ON SCHEMA public TO \"ragsass@tlk.com\";" >/dev/null 2>&1
+  
+  echo -e "${GREEN}   ✓ Permissions configured successfully.${RESET}"
+  return 0
+}
+
+# Helper: Update the DATABASE_URL in .env file to match host setup credentials
+update_env_file() {
+  local env_file="$CWD/.env"
+  local new_db_url="DATABASE_URL=postgresql+asyncpg://ragsass%40tlk.com:ragsaas_tlk_1680@localhost:5432/ragaas"
+  
+  if [ -f "$env_file" ]; then
+    if grep -q "ragsass%40tlk.com" "$env_file"; then
+      return 0
+    fi
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' "s|^DATABASE_URL=.*|$new_db_url|g" "$env_file"
+    else
+      sed -i "s|^DATABASE_URL=.*|$new_db_url|g" "$env_file"
+    fi
+    echo -e "${GREEN}   ✓ Updated DATABASE_URL in .env to use 'ragsass@tlk.com'.${RESET}"
+  fi
+}
+
 # Action: Start development services
 run_services() {
   echo -e "${BLUE}🌱 Starting RAGaaS Local Development Environment...${RESET}"
 
-  # 1. Start Docker dependencies
-  if [ -z "$DOCKER_COMPOSE_CMD" ]; then
-    echo -e "${RED}❌ Docker / Docker Compose not found. Please install Docker to run Postgres, Redis, and Qdrant.${RESET}"
-    exit 1
+  # Ensure .env file exists
+  if [ ! -f "$CWD/.env" ]; then
+    echo -e "${CYAN}[*] Creating .env file from .env.example...${RESET}"
+    cp "$CWD/.env.example" "$CWD/.env"
   fi
 
-  echo -e "${CYAN}[*] Starting database, cache, and vector store (Postgres, Redis, Qdrant)...${RESET}"
-  $DOCKER_COMPOSE_CMD up -d postgres redis qdrant
-  if [ $? -ne 0 ]; then
-    echo -e "${YELLOW}⚠️  Failed to start Docker services. Continuing with local processes (make sure Postgres, Redis, and Qdrant are running)...${RESET}"
+  # 1. Start Docker dependencies
+  if [ -z "$DOCKER_COMPOSE_CMD" ]; then
+    echo -e "${YELLOW}⚠️  Docker / Docker Compose not found. Proceeding with system services...${RESET}"
+    setup_system_postgres
+    update_env_file
+  else
+    echo -e "${CYAN}[*] Starting database, cache, and vector store (Postgres, Redis, Qdrant)...${RESET}"
+    $DOCKER_COMPOSE_CMD up -d postgres redis qdrant
+    if [ $? -ne 0 ]; then
+      echo -e "${YELLOW}⚠️  Failed to start Docker services. Continuing with local processes (make sure Postgres, Redis, and Qdrant are running)...${RESET}"
+      setup_system_postgres
+      update_env_file
+    fi
   fi
 
   # Wait for services to initialize

@@ -171,6 +171,18 @@ class RAGaaSApiClient {
       method: 'DELETE',
     });
   }
+
+  // == Tenant Settings Management ==
+  async getSettings() {
+    return this.request('/v1/tenant/settings');
+  }
+
+  async updateSettings(settings) {
+    return this.request('/v1/tenant/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    });
+  }
 }
 
 // Export global instance

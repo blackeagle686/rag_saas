@@ -67,11 +67,12 @@ class QueryService:
         context, sources = self._build_context(search_results)
 
         # 5. Call LLM
-        model_used = request.model or self._get_default_model()
+        model_used = request.model or self._get_default_model(tenant)
         answer, tokens_used = await self._call_llm(
             query=request.query,
             context=context,
             model=model_used,
+            tenant=tenant,
         )
 
         # 6. Calculate timing
@@ -222,14 +223,12 @@ class QueryService:
         context = "\n\n---\n\n".join(context_parts)
         return context, sources
 
-    def _get_default_model(self) -> str:
+    def _get_default_model(self, tenant: Tenant) -> str:
         """Get the default LLM model based on settings."""
-        if self.settings.llm_provider == "anthropic":
-            return self.settings.anthropic_model
-        return self.settings.openai_llm_model
+        return tenant.llm_model or self.settings.openai_llm_model
 
     async def _call_llm(
-        self, query: str, context: str, model: str
+        self, query: str, context: str, model: str, tenant: Tenant
     ) -> tuple[str, int]:
         """
         Call the LLM to generate an answer.
@@ -252,21 +251,24 @@ class QueryService:
         user_message = f"Context:\n{context}\n\nQuestion: {query}"
 
         try:
-            if "claude" in model.lower() or self.settings.llm_provider == "anthropic":
-                return await self._call_anthropic(system_prompt, user_message, model)
+            if "claude" in model.lower() or tenant.llm_provider == "anthropic":
+                return await self._call_anthropic(system_prompt, user_message, model, tenant)
             else:
-                return await self._call_openai(system_prompt, user_message, model)
+                return await self._call_openai(system_prompt, user_message, model, tenant)
         except Exception as e:
             logger.error("llm_call_failed", error=str(e), model=model)
             raise ExternalServiceError(detail=f"LLM service error: {e}")
 
     async def _call_openai(
-        self, system_prompt: str, user_message: str, model: str
+        self, system_prompt: str, user_message: str, model: str, tenant: Tenant
     ) -> tuple[str, int]:
         """Call OpenAI chat completion."""
         import openai
 
-        client = openai.AsyncOpenAI(api_key=self.settings.openai_api_key)
+        api_key = tenant.llm_api_key or self.settings.openai_api_key
+        base_url = tenant.llm_base_url or None
+
+        client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
         response = await client.chat.completions.create(
             model=model,
             messages=[
@@ -282,12 +284,19 @@ class QueryService:
         return answer, tokens
 
     async def _call_anthropic(
-        self, system_prompt: str, user_message: str, model: str
+        self, system_prompt: str, user_message: str, model: str, tenant: Tenant
     ) -> tuple[str, int]:
         """Call Anthropic Claude."""
         import anthropic
 
-        client = anthropic.AsyncAnthropic(api_key=self.settings.anthropic_api_key)
+        api_key = tenant.llm_api_key or self.settings.anthropic_api_key
+        base_url = tenant.llm_base_url or None
+
+        client_args = {"api_key": api_key}
+        if base_url:
+            client_args["base_url"] = base_url
+
+        client = anthropic.AsyncAnthropic(**client_args)
         response = await client.messages.create(
             model=model,
             max_tokens=1500,
