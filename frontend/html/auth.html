@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="RAGaaS Authentication — Access your developer dashboard to manage API keys and query namespaces.">
+  <title>Authenticate | RAGaaS Developer Dashboard</title>
+  
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body class="auth-page">
+  <main class="glass-card auth-card animate-fade-in" id="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">
+        <div class="logo-icon">R</div>
+      </div>
+      <h1>RAG-as-a-Service</h1>
+      <p>Developer Console Login</p>
+    </div>
+
+    <form id="auth-form">
+      <div class="form-group">
+        <label for="api-key-input" class="form-label">Developer API Key</label>
+        <input 
+          type="password" 
+          id="api-key-input" 
+          class="form-input" 
+          placeholder="rgs_live_..." 
+          required 
+          autocomplete="current-password"
+        >
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+        Authenticate Key
+      </button>
+    </form>
+
+    <div style="margin-top: 1.5rem; text-align: center; font-size: 0.8rem; color: var(--text-muted);">
+      Don't have a key? Seed the database locally with <br>
+      <code style="background-color: rgba(255,255,255,0.05); padding: 2px 4px; border-radius: 4px; color: var(--accent-secondary);">python -m scripts.seed</code>
+    </div>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script>
+    // Local form submission hook
+    document.getElementById('auth-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const key = document.getElementById('api-key-input').value.trim();
+      if (key) {
+        window.api.setApiKey(key);
+        window.location.href = 'dashboard.html';
+      }
+    });
+
+    // Check if already authenticated on load
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.api.isAuthenticated()) {
+        window.location.href = 'dashboard.html';
+      }
+    });
+  </script>
+</body>
+</html>

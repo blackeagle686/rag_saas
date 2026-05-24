@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="RAGaaS Developer Dashboard — Control panel for managing namespaces, documents, API keys, and testing search queries.">
+  <title>Dashboard | RAGaaS Console</title>
+  
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <a href="#" class="sidebar-logo">
+        <div class="logo-icon">R</div>
+        <span class="logo-text">RAGaaS</span>
+      </a>
+
+      <nav>
+        <ul class="sidebar-menu">
+          <li class="menu-item">
+            <a href="#overview" class="menu-link active" data-tab="overview">
+              <span>📊</span> Overview
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="#namespaces" class="menu-link" data-tab="namespaces">
+              <span>📂</span> Namespaces
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="#keys" class="menu-link" data-tab="keys">
+              <span>🔑</span> API Keys
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="#playground" class="menu-link" data-tab="playground">
+              <span>💬</span> Playground
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="user-avatar">D</div>
+          <div class="user-info">
+            <span class="user-name">Developer Mode</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span id="api-health-dot" style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-muted); display: inline-block;"></span>
+              <span id="api-health-status" class="user-role">Checking API...</span>
+            </div>
+          </div>
+        </div>
+        <a href="#" class="btn btn-secondary btn-sm" id="btn-logout" style="width: 100%;">
+          Logout
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- == TAB: OVERVIEW == -->
+      <section id="tab-overview" class="tab-content">
+        <header class="header">
+          <div class="header-title">
+            <h1>Console Overview</h1>
+            <p>Monitor your active indices and document statistics.</p>
+          </div>
+        </header>
+
+        <div class="stats-grid">
+          <div class="glass-card stat-card">
+            <div class="stat-icon">📂</div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-namespaces-count">—</span>
+              <span class="stat-label">Namespaces</span>
+            </div>
+          </div>
+          <div class="glass-card stat-card">
+            <div class="stat-icon">📄</div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-documents-count">—</span>
+              <span class="stat-label">Ingested Files</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h2 class="section-title">Recent Namespaces</h2>
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Documents</th>
+                  <th>Token Volume</th>
+                </tr>
+              </thead>
+              <tbody id="overview-namespaces-list">
+                <tr>
+                  <td colspan="3" class="loader-container"><div class="spinner"></div> Loading recent namespaces...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- == TAB: NAMESPACES == -->
+      <section id="tab-namespaces" class="tab-content hidden">
+        <!-- List View -->
+        <div id="ns-list-card" class="glass-card">
+          <header class="header" style="margin-bottom: 1.5rem; padding: 0;">
+            <h1 style="font-size: 1.5rem; font-family: var(--font-display);">Namespaces</h1>
+            <button class="btn btn-primary" id="btn-open-create-ns">
+              <span>+</span> Create Namespace
+            </button>
+          </header>
+          
+          <div id="namespaces-alert"></div>
+
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Files Count</th>
+                  <th>Tokens Volume</th>
+                  <th>Created At</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="namespaces-list-body">
+                <tr>
+                  <td colspan="5" class="loader-container"><div class="spinner"></div> Loading namespaces...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Detail View (Initially Hidden) -->
+        <div id="ns-detail-card" class="glass-card hidden">
+          <header class="header" style="margin-bottom: 2rem; padding: 0;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <button class="btn btn-secondary btn-sm" id="btn-back-to-ns">← Back</button>
+              <h1 id="ns-detail-title" style="font-size: 1.5rem; font-family: var(--font-display);">Namespace Details</h1>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btn-delete-active-ns">Delete Namespace</button>
+          </header>
+
+          <div class="ns-details-container">
+            <!-- Left Pane: Documents List -->
+            <div>
+              <h3 class="section-title">Ingested Documents</h3>
+              <div class="table-wrapper">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Filename</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Size/Chunks</th>
+                      <th style="text-align: right;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="documents-list-body">
+                    <tr>
+                      <td colspan="5" style="text-align: center; color: var(--text-muted);">No documents.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Right Pane: File Uploader & Actions -->
+            <div>
+              <h3 class="section-title">Ingest Data</h3>
+              
+              <!-- Dropzone File Upload -->
+              <div class="uploader-dropzone" id="uploader-dropzone">
+                <div class="uploader-icon">📤</div>
+                <div class="uploader-title">Drag & drop files here</div>
+                <div class="uploader-desc">or click to browse local files</div>
+                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">PDF, DOCX, TXT, MD, HTML (Max 50MB)</div>
+                <input type="file" id="file-input" class="file-input" accept=".pdf,.docx,.txt,.md,.html">
+              </div>
+
+              <!-- Upload Status Box -->
+              <div id="upload-status"></div>
+
+              <!-- Alternative URL Import -->
+              <button class="btn btn-secondary" style="width: 100%;" onclick="window.App.openModal('modal-upload-url')">
+                🌐 Import via URL
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- == TAB: API KEYS == -->
+      <section id="tab-keys" class="tab-content hidden">
+        <div class="glass-card">
+          <header class="header" style="margin-bottom: 1.5rem; padding: 0;">
+            <h1 style="font-size: 1.5rem; font-family: var(--font-display);">API Keys</h1>
+            <button class="btn btn-primary" id="btn-open-create-key">
+              <span>+</span> Generate API Key
+            </button>
+          </header>
+
+          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+            Use API keys to authenticate your server side queries and document uploads against RAGaaS.
+          </p>
+
+          <div id="keys-alert"></div>
+
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Key Prefix</th>
+                  <th>Label</th>
+                  <th>Status</th>
+                  <th>Last Used</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="keys-list-body">
+                <tr>
+                  <td colspan="5" class="loader-container"><div class="spinner"></div> Loading keys...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- == TAB: PLAYGROUND == -->
+      <section id="tab-playground" class="tab-content hidden">
+        <div class="glass-card chat-panel" style="height: 700px; padding: 1.5rem;">
+          <header class="header" style="margin-bottom: 1rem; padding: 0; flex-shrink: 0;">
+            <h1 style="font-size: 1.35rem; font-family: var(--font-display);">Query Playground</h1>
+            <button class="btn btn-secondary btn-sm" id="btn-clear-chat">Clear History</button>
+          </header>
+
+          <div class="playground-container">
+            <!-- Left Side Settings -->
+            <div class="playground-sidebar">
+              <div class="form-group">
+                <label for="query-namespace" class="form-label">Target Namespace</label>
+                <select id="query-namespace" class="form-input">
+                  <option value="" disabled selected>Loading namespaces...</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="query-model" class="form-label">LLM Model</label>
+                <select id="query-model" class="form-input">
+                  <option value="gpt-4o" selected>GPT-4o (Default)</option>
+                  <option value="claude-sonnet-4-20250514">Claude Sonnet</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="query-top-k" class="form-label">Retrieve Count (Top K)</label>
+                <input type="number" id="query-top-k" class="form-input" min="1" max="15" value="5">
+              </div>
+            </div>
+
+            <!-- Right Side Chat Interface -->
+            <div style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+              <!-- History -->
+              <div class="chat-history" id="chat-history">
+                <div class="chat-message assistant">
+                  <div class="message-bubble">
+                    👋 Welcome to the RAGaaS Playground. Select a namespace on the left, type a query below, and see retrieve-and-generate responses in real-time!
+                  </div>
+                </div>
+              </div>
+
+              <!-- Input form -->
+              <form id="playground-query-form" class="chat-input-wrapper">
+                <input 
+                  type="text" 
+                  id="query-input" 
+                  class="form-input chat-input" 
+                  placeholder="Ask a question about your indexed documents..." 
+                  required
+                >
+                <button type="submit" class="btn btn-primary">
+                  Query
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- == MODAL: CREATE NAMESPACE == -->
+  <div class="modal-overlay" id="modal-create-namespace">
+    <div class="modal-content animate-fade-in">
+      <header class="modal-header">
+        <h2 class="modal-title">Create Namespace</h2>
+        <button class="modal-close">&times;</button>
+      </header>
+      <form id="create-ns-form">
+        <div class="form-group">
+          <label for="ns-name-input" class="form-label">Namespace Name</label>
+          <input 
+            type="text" 
+            id="ns-name-input" 
+            class="form-input" 
+            placeholder="e.g. legal-docs" 
+            pattern="^[a-zA-Z0-9][a-zA-Z0-9\-_]{0,63}$" 
+            title="Alphanumeric, hyphens and underscores only, max 64 characters."
+            required
+          >
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- == MODAL: UPLOAD VIA URL == -->
+  <div class="modal-overlay" id="modal-upload-url">
+    <div class="modal-content animate-fade-in">
+      <header class="modal-header">
+        <h2 class="modal-title">Import File from Web</h2>
+        <button class="modal-close">&times;</button>
+      </header>
+      <form id="upload-url-form">
+        <div class="form-group">
+          <label for="ns-url-input" class="form-label">File HTTP URL</label>
+          <input 
+            type="url" 
+            id="ns-url-input" 
+            class="form-input" 
+            placeholder="https://example.com/agreement.pdf" 
+            required
+          >
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Start Ingestion</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- == MODAL: CREATE API KEY == -->
+  <div class="modal-overlay" id="modal-create-key">
+    <div class="modal-content animate-fade-in">
+      <header class="modal-header">
+        <h2 class="modal-title">Generate API Key</h2>
+        <button class="modal-close">&times;</button>
+      </header>
+      <form id="create-key-form">
+        <div class="form-group">
+          <label for="key-label-input" class="form-label">Key Label / Description</label>
+          <input 
+            type="text" 
+            id="key-label-input" 
+            class="form-input" 
+            placeholder="e.g. production-backend" 
+            maxlength="100"
+          >
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Generate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- == MODAL: SHOW RAW KEY (ONE-TIME VIEW) == -->
+  <div class="modal-overlay" id="modal-show-raw-key">
+    <div class="modal-content animate-fade-in" style="max-width: 600px;">
+      <header class="modal-header">
+        <h2 class="modal-title">API Key Generated</h2>
+        <button class="modal-close">&times;</button>
+      </header>
+      <div style="background-color: var(--color-warning-bg); border: 1px solid rgba(245, 158, 11, 0.2); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--color-warning); line-height: 1.4; margin-bottom: 1.5rem;">
+        ⚠️ <strong>Store this key securely!</strong> For security reasons, we will only show this secret token once. If you lose it, you will need to revoke it and generate a new key.
+      </div>
+      
+      <div class="copy-box">
+        <span class="copy-text" id="raw-key-display">rgs_live_...</span>
+        <button class="btn btn-secondary btn-sm" id="btn-copy-raw-key">Copy Key</button>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary btn-close-modal" style="width: 100%;">I have saved my key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Core Javascript Modules -->
+  <script src="../js/api.js"></script>
+  <script src="../js/namespaces.js"></script>
+  <script src="../js/keys.js"></script>
+  <script src="../js/playground.js"></script>
+  <script src="../js/app.js"></script>
+</body>
+</html>

@@ -109,8 +109,18 @@ services:
       --loglevel=info
       --concurrency=2
 
+  # == Frontend Static Server (Nginx) ==
+  frontend:
+    image: nginx:alpine
+    container_name: ragaas-frontend
+    ports:
+      - "5000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+
 volumes:
   pgdata:
   redisdata:
   qdrantdata:
   storagedata:
+
