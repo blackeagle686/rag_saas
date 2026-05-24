@@ -41,7 +41,14 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         except Exception:
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             # Log failed requests
-            tenant_id = getattr(getattr(request.state, "tenant", None), "id", None)
+            tenant_id = getattr(request.state, "tenant_id", None)
+            if tenant_id is None:
+                tenant = getattr(request.state, "tenant", None)
+                if tenant:
+                    try:
+                        tenant_id = tenant.id
+                    except Exception:
+                        pass
             logger.error(
                 "request_failed",
                 request_id=request_id,
@@ -57,8 +64,15 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         duration_ms = int((time.perf_counter() - start_time) * 1000)
 
         # Extract tenant info if available
-        tenant = getattr(request.state, "tenant", None)
-        tenant_id = str(tenant.id) if tenant else None
+        tenant_id = getattr(request.state, "tenant_id", None)
+        if tenant_id is None:
+            tenant = getattr(request.state, "tenant", None)
+            if tenant:
+                try:
+                    tenant_id = tenant.id
+                except Exception:
+                    pass
+        tenant_id_str = str(tenant_id) if tenant_id else None
 
         # Determine log level
         log_level = "info"
@@ -72,7 +86,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         # Build log entry
         log_data = {
             "request_id": request_id,
-            "tenant_id": tenant_id,
+            "tenant_id": tenant_id_str,
             "method": request.method,
             "path": request.url.path,
             "status_code": response.status_code,
