@@ -41,8 +41,14 @@ class Document(TimestampMixin, Base):
 
     filename: Mapped[str] = mapped_column(
         String(255),
-         nullable=False)
-    file_type: Mapped[FileType] = mapped_column(String(10), nullable=False)
+        nullable=False
+    )
+    
+    file_type: Mapped[FileType] = mapped_column(
+        String(10),
+         nullable=False
+         )
+    
     status: Mapped[DocumentStatus] = mapped_column(
         String(20),
         default=DocumentStatus.PENDING,
