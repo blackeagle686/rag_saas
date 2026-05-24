@@ -65,7 +65,7 @@ class Document(TimestampMixin, Base):
 
     # Relationships
     namespace = relationship("Namespace", back_populates="documents")
-    contining_
+    contining_image_
 
     def __repr__(self) -> str:
         return f"<Document {self.filename} status={self.status}>"
