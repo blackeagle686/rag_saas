@@ -92,6 +92,7 @@ async def get_current_tenant(
 
     # 6. Attach tenant to request state for downstream use
     request.state.tenant = tenant
+    request.state.tenant_id = tenant.id
     request.state.api_key_id = matched_key.id
 
     return tenant
