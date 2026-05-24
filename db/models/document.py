@@ -24,7 +24,10 @@ class FileType(str, enum.Enum):
     TXT = "txt"
     JSON = "json"
     XML = "xml"
-    C
+    CSV = "csv"
+    HTML = "html"
+    MD = "md"
+    PPTX = "pptx"
 
 class Document(TimestampMixin, Base):
     __tablename__ = "documents"
