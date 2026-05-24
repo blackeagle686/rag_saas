@@ -22,6 +22,8 @@ class FileType(str, enum.Enum):
     PDF = "pdf"
     DOCX = "docx"
     TXT = "txt"
+    JSON = "json"
+    
 
 class Document(TimestampMixin, Base):
     __tablename__ = "documents"
