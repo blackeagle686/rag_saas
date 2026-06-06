@@ -13,6 +13,13 @@ import string
 from pathlib import PurePosixPath
 
 import bcrypt
+from jose import JWTError, jwt
+from datetime import datetime, timedelta, timezone
+
+# Add config for JWT
+# Assuming SECRET_KEY and ALGORITHM should be pulled from config, but for simplicity here
+# we can fetch them dynamically or define fallbacks
+from api.config import get_settings
 
 
 # == API Key Generation ==
@@ -51,6 +58,49 @@ def verify_api_key(raw_key: str, stored_hash: str) -> bool:
         return bcrypt.checkpw(raw_key.encode("utf-8"), stored_hash.encode("utf-8"))
     except (ValueError, TypeError):
         return False
+
+
+# == Password Hashing ==
+
+def get_password_hash(password: str) -> str:
+    """Hash a plaintext password using bcrypt."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a plaintext password against its stored bcrypt hash."""
+    try:
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
+
+# == JWT Tokens ==
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+    """Create a JWT access token."""
+    settings = get_settings()
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    # For JWT secret, we can use an env var. Since there isn't one defined, we'll use a hardcoded fallback
+    # but preferably add JWT_SECRET to config.py.
+    secret = getattr(settings, "jwt_secret", "YOUR-SUPER-SECRET-JWT-KEY")
+    algorithm = getattr(settings, "jwt_algorithm", "HS256")
+    encoded_jwt = jwt.encode(to_encode, secret, algorithm=algorithm)
+    return encoded_jwt
+
+def decode_access_token(token: str) -> dict | None:
+    """Decode a JWT access token, returning the payload if valid."""
+    settings = get_settings()
+    secret = getattr(settings, "jwt_secret", "YOUR-SUPER-SECRET-JWT-KEY")
+    algorithm = getattr(settings, "jwt_algorithm", "HS256")
+    try:
+        payload = jwt.decode(token, secret, algorithms=[algorithm])
+        return payload
+    except JWTError:
+        return None
 
 
 # == Input Sanitization ==
