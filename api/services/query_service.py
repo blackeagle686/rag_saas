@@ -52,7 +52,7 @@ class QueryService:
             raise NotFoundError(detail=f"Namespace '{request.namespace}' not found.")
 
         # 2. Embed the query
-        query_embedding = await self._embed_query(request.query)
+        query_embedding = await self._embed_query(request.query, ns)
 
         # 3. Search Qdrant
         search_results = await self._search_qdrant(
@@ -67,12 +67,12 @@ class QueryService:
         context, sources = self._build_context(search_results)
 
         # 5. Call LLM
-        model_used = request.model or self._get_default_model(tenant)
+        model_used = request.model or self._get_default_model(ns)
         answer, tokens_used = await self._call_llm(
             query=request.query,
             context=context,
             model=model_used,
-            tenant=tenant,
+            namespace=ns,
         )
 
         # 6. Calculate timing
@@ -103,30 +103,25 @@ class QueryService:
             tokens_used=tokens_used,
         )
 
-    async def _embed_query(self, query: str) -> list[float]:
-        """Embed the query using OpenAI or local embeddings."""
+    async def _embed_query(self, query: str, namespace) -> list[float]:
+        """Embed the query using the namespace's configured embedding service."""
         if self.settings.mock_llm:
-            # Return mock embedding for testing
             return [0.0] * self.settings.embedding_dimensions
 
-        if self.settings.app_env == "development":
-            try:
-                from core.embeddings import embed_text_locally
-                return embed_text_locally(query, is_query=True)
-            except Exception as e:
-                logger.error("local_embedding_failed", error=str(e))
-                raise ExternalServiceError(detail=f"Local embedding service error: {e}")
-
         try:
-            import openai
-
-            client = openai.AsyncOpenAI(api_key=self.settings.openai_api_key)
-            response = await client.embeddings.create(
-                model=self.settings.embedding_model,
-                input=query,
-                dimensions=self.settings.embedding_dimensions,
+            from core.embedding_service import EmbeddingService
+            service = EmbeddingService(
+                provider=namespace.embedding_provider,
+                model=namespace.embedding_model,
+                api_key=namespace.embedding_api_key,
+                base_url=namespace.embedding_base_url,
             )
-            return response.data[0].embedding
+            # EmbeddingService uses sync clients, so we wrap it if needed or just call it directly.
+            # In an async web framework, this blocks the event loop for a fraction of a second, 
+            # but given it's an API call, it's better to use an executor.
+            import asyncio
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(None, service.embed_text, query, True)
         except Exception as e:
             logger.error("embedding_failed", error=str(e))
             raise ExternalServiceError(detail=f"Embedding service error: {e}")
@@ -231,12 +226,12 @@ class QueryService:
         context = "\n\n---\n\n".join(context_parts)
         return context, sources
 
-    def _get_default_model(self, tenant: Tenant) -> str:
-        """Get the default LLM model based on settings."""
-        return tenant.llm_model or self.settings.openai_llm_model
+    def _get_default_model(self, namespace) -> str:
+        """Get the default LLM model based on namespace settings."""
+        return namespace.llm_model or self.settings.openai_llm_model
 
     async def _call_llm(
-        self, query: str, context: str, model: str, tenant: Tenant
+        self, query: str, context: str, model: str, namespace
     ) -> tuple[str, int]:
         """
         Call the LLM to generate an answer.
@@ -259,22 +254,22 @@ class QueryService:
         user_message = f"Context:\n{context}\n\nQuestion: {query}"
 
         try:
-            if "claude" in model.lower() or tenant.llm_provider == "anthropic":
-                return await self._call_anthropic(system_prompt, user_message, model, tenant)
+            if "claude" in model.lower() or namespace.llm_provider == "anthropic":
+                return await self._call_anthropic(system_prompt, user_message, model, namespace)
             else:
-                return await self._call_openai(system_prompt, user_message, model, tenant)
+                return await self._call_openai(system_prompt, user_message, model, namespace)
         except Exception as e:
             logger.error("llm_call_failed", error=str(e), model=model)
             raise ExternalServiceError(detail=f"LLM service error: {e}")
 
     async def _call_openai(
-        self, system_prompt: str, user_message: str, model: str, tenant: Tenant
+        self, system_prompt: str, user_message: str, model: str, namespace
     ) -> tuple[str, int]:
         """Call OpenAI chat completion."""
         import openai
 
-        api_key = tenant.llm_api_key or self.settings.openai_api_key
-        base_url = tenant.llm_base_url or None
+        api_key = namespace.llm_api_key or self.settings.openai_api_key
+        base_url = namespace.llm_base_url or None
 
         client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
         response = await client.chat.completions.create(
@@ -292,13 +287,13 @@ class QueryService:
         return answer, tokens
 
     async def _call_anthropic(
-        self, system_prompt: str, user_message: str, model: str, tenant: Tenant
+        self, system_prompt: str, user_message: str, model: str, namespace
     ) -> tuple[str, int]:
         """Call Anthropic Claude."""
         import anthropic
 
-        api_key = tenant.llm_api_key or self.settings.anthropic_api_key
-        base_url = tenant.llm_base_url or None
+        api_key = namespace.llm_api_key or self.settings.anthropic_api_key
+        base_url = namespace.llm_base_url or None
 
         client_args = {"api_key": api_key}
         if base_url:
