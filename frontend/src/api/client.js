@@ -4,23 +4,23 @@
 class RAGaaSApiClient {
   constructor(baseUrl = 'http://localhost:8000') {
     this.baseUrl = baseUrl;
-    this.apiKeyKey = 'ragaas_api_key';
+    this.tokenKey = 'ragaas_auth_token';
   }
 
-  setApiKey(apiKey) {
-    localStorage.setItem(this.apiKeyKey, apiKey);
+  setToken(token) {
+    localStorage.setItem(this.tokenKey, token);
   }
 
-  getApiKey() {
-    return localStorage.getItem(this.apiKeyKey);
+  getToken() {
+    return localStorage.getItem(this.tokenKey);
   }
 
-  clearApiKey() {
-    localStorage.removeItem(this.apiKeyKey);
+  clearToken() {
+    localStorage.removeItem(this.tokenKey);
   }
 
   isAuthenticated() {
-    return !!this.getApiKey();
+    return !!this.getToken();
   }
 
   /**
@@ -28,14 +28,14 @@ class RAGaaSApiClient {
    */
   async request(path, options = {}) {
     const url = `${this.baseUrl}${path}`;
-    const apiKey = this.getApiKey();
+    const token = this.getToken();
 
     const headers = {
       ...(options.headers || {}),
     };
 
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     // Set JSON content-type if we aren't sending FormData
@@ -67,6 +67,29 @@ class RAGaaSApiClient {
     }
   }
 
+  // == Auth ==
+  async login(email, password) {
+    const data = await this.request('/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (data.access_token) {
+      this.setToken(data.access_token);
+    }
+    return data;
+  }
+
+  async register(name, email, password) {
+    const data = await this.request('/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password }),
+    });
+    if (data.access_token) {
+      this.setToken(data.access_token);
+    }
+    return data;
+  }
+
   // == Health Checks ==
   async getHealth() {
     return this.request('/health');
@@ -77,10 +100,10 @@ class RAGaaSApiClient {
     return this.request('/v1/namespaces');
   }
 
-  async createNamespace(name) {
+  async createNamespace(name, config = {}) {
     return this.request('/v1/namespaces', {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, ...config }),
     });
   }
 
@@ -148,9 +171,10 @@ class RAGaaSApiClient {
     return this.request('/v1/keys');
   }
 
-  async createKey(label = null) {
-    const body = {};
+  async createKey(label = null, namespace_id = null, role = 'admin') {
+    const body = { role };
     if (label) body.label = label;
+    if (namespace_id) body.namespace_id = namespace_id;
     return this.request('/v1/keys', {
       method: 'POST',
       body: JSON.stringify(body),
