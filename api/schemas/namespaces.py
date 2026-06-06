@@ -20,6 +20,15 @@ class CreateNamespaceRequest(BaseModel):
         description="Namespace name (alphanumeric, hyphens, underscores)",
         examples=["my-docs"],
     )
+    llm_provider: str = Field(default="openai", description="LLM provider")
+    llm_model: str = Field(default="gpt-4o-mini", description="LLM model name")
+    llm_api_key: str | None = Field(None, description="LLM API key")
+    llm_base_url: str | None = Field(None, description="LLM Base URL (optional)")
+
+    embedding_provider: str = Field(default="dashscope", description="Embedding provider")
+    embedding_model: str = Field(default="text-embedding-v4", description="Embedding model name")
+    embedding_api_key: str | None = Field(None, description="Embedding API key")
+    embedding_base_url: str | None = Field(None, description="Embedding Base URL (optional)")
 
     @field_validator("name")
     @classmethod
@@ -39,6 +48,10 @@ class NamespaceInfo(BaseModel):
     name: str
     doc_count: int
     token_count: int
+    llm_provider: str
+    llm_model: str
+    embedding_provider: str
+    embedding_model: str
     created_at: datetime
 
 
