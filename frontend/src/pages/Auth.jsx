@@ -2,13 +2,25 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const Auth = () => {
-  const [key, setKey] = useState('');
-  const { login } = useAuth();
+  const [isLogin, setIsLogin] = useState(true);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  
+  const { login, register } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (key.trim()) {
-      login(key.trim());
+    setError(null);
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        await register(name, email, password);
+      }
+    } catch (err) {
+      setError(err.message || 'Authentication failed');
     }
   };
 
@@ -20,34 +32,68 @@ const Auth = () => {
             <div className="logo-icon">R</div>
           </div>
           <h1>RAG-as-a-Service</h1>
-          <p>Developer Console Login</p>
+          <p>Developer Console {isLogin ? 'Login' : 'Register'}</p>
         </div>
 
+        {error && (
+          <div className="alert alert-error" style={{ marginBottom: '1rem', color: '#ff6b6b' }}>
+            {error}
+          </div>
+        )}
+
         <form id="auth-form" onSubmit={handleSubmit}>
+          {!isLogin && (
+            <div className="form-group">
+              <label className="form-label">Full Name</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="John Doe" 
+                required 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+          )}
+
           <div className="form-group">
-            <label htmlFor="api-key-input" className="form-label">Developer API Key</label>
+            <label className="form-label">Email</label>
+            <input 
+              type="email" 
+              className="form-input" 
+              placeholder="you@example.com" 
+              required 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Password</label>
             <input 
               type="password" 
-              id="api-key-input" 
               className="form-input" 
-              placeholder="rgs_live_..." 
+              placeholder="••••••••" 
               required 
-              autoComplete="current-password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
-            Authenticate Key
+            {isLogin ? 'Sign In' : 'Create Account'}
           </button>
         </form>
 
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          Don't have a key? Seed the database locally with <br />
-          <code style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 4px', borderRadius: '4px', color: 'var(--accent-secondary)' }}>
-            python -m scripts.seed
-          </code>
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+          {isLogin ? "Don't have an account? " : "Already have an account? "}
+          <button 
+            type="button" 
+            onClick={() => setIsLogin(!isLogin)} 
+            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {isLogin ? "Register" : "Log In"}
+          </button>
         </div>
       </main>
     </div>
