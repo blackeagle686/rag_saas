@@ -15,6 +15,17 @@ const NamespacesTab = () => {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newNsName, setNewNsName] = useState('');
+  
+  // Namespace Config State
+  const [llmProvider, setLlmProvider] = useState('openai');
+  const [llmModel, setLlmModel] = useState('gpt-4o-mini');
+  const [llmApiKey, setLlmApiKey] = useState('');
+  const [llmBaseUrl, setLlmBaseUrl] = useState('');
+  const [embeddingProvider, setEmbeddingProvider] = useState('dashscope');
+  const [embeddingModel, setEmbeddingModel] = useState('text-embedding-v4');
+  const [embeddingApiKey, setEmbeddingApiKey] = useState('');
+  const [embeddingBaseUrl, setEmbeddingBaseUrl] = useState('');
+
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [newUrl, setNewUrl] = useState('');
 
@@ -55,11 +66,24 @@ const NamespacesTab = () => {
   const handleCreateNamespace = async (e) => {
     e.preventDefault();
     try {
-      await api.createNamespace(newNsName);
+      await api.createNamespace(newNsName, {
+        llm_provider: llmProvider,
+        llm_model: llmModel,
+        llm_api_key: llmApiKey || null,
+        llm_base_url: llmBaseUrl || null,
+        embedding_provider: embeddingProvider,
+        embedding_model: embeddingModel,
+        embedding_api_key: embeddingApiKey || null,
+        embedding_base_url: embeddingBaseUrl || null,
+      });
       setAlert({ type: 'success', message: `Namespace '${newNsName}' created.` });
       setShowCreateModal(false);
       setNewNsName('');
       loadNamespaces();
+    } catch (error) {
+      setAlert({ type: 'error', message: error.message || 'Failed to create namespace' });
+    }
+  };
     } catch (error) {
       setAlert({ type: 'error', message: error.message || 'Failed to create namespace' });
     }
@@ -318,6 +342,56 @@ const NamespacesTab = () => {
                   onChange={e => setNewNsName(e.target.value)}
                   required
                 />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">LLM Provider</label>
+                  <select className="form-input" value={llmProvider} onChange={e => setLlmProvider(e.target.value)}>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">LLM Model</label>
+                  <input type="text" className="form-input" value={llmModel} onChange={e => setLlmModel(e.target.value)} required />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">LLM API Key</label>
+                <input type="password" className="form-input" placeholder="sk-..." value={llmApiKey} onChange={e => setLlmApiKey(e.target.value)} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">LLM Base URL (Optional)</label>
+                <input type="text" className="form-input" placeholder="https://api.openai.com/v1" value={llmBaseUrl} onChange={e => setLlmBaseUrl(e.target.value)} />
+              </div>
+
+              <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '1rem 0' }} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Embedding Provider</label>
+                  <select className="form-input" value={embeddingProvider} onChange={e => setEmbeddingProvider(e.target.value)}>
+                    <option value="dashscope">DashScope</option>
+                    <option value="openai">OpenAI</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Embedding Model</label>
+                  <input type="text" className="form-input" value={embeddingModel} onChange={e => setEmbeddingModel(e.target.value)} required />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Embedding API Key</label>
+                <input type="password" className="form-input" placeholder="sk-..." value={embeddingApiKey} onChange={e => setEmbeddingApiKey(e.target.value)} />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Embedding Base URL (Optional)</label>
+                <input type="text" className="form-input" placeholder="https://dashscope-intl.aliyuncs.com/compatible-mode/v1" value={embeddingBaseUrl} onChange={e => setEmbeddingBaseUrl(e.target.value)} />
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
