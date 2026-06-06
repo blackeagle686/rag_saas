@@ -225,10 +225,10 @@ run_services() {
   if is_running "$PID_DIR/frontend.pid"; then
     echo -e "${YELLOW}⚠️  Frontend server is already running (PID: $(cat "$PID_DIR/frontend.pid")).${RESET}"
   else
-    echo -e "${CYAN}[*] Starting Frontend server on port 5000...${RESET}"
-    $VENV_PYTHON -m http.server 5000 --directory "$CWD/frontend" > "$LOG_DIR/frontend.log" 2>&1 &
+    echo -e "${CYAN}[*] Starting React Frontend (Vite) on port 5000...${RESET}"
+    cd "$CWD/frontend" && npm run dev -- --port 5000 > "$LOG_DIR/frontend.log" 2>&1 &
     echo $! > "$PID_DIR/frontend.pid"
-    echo -e "${GREEN}   ✓ Frontend static server running in background.${RESET}"
+    echo -e "${GREEN}   ✓ Frontend dev server running in background.${RESET}"
   fi
 
   echo -e "\n${GREEN}🚀 RAGaaS environment is ready!${RESET}"
