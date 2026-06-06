@@ -18,8 +18,27 @@ class NamespaceRepository:
         self,
         tenant_id: uuid.UUID,
         name: str,
+        llm_provider: str,
+        llm_model: str,
+        llm_api_key: str | None,
+        llm_base_url: str | None,
+        embedding_provider: str,
+        embedding_model: str,
+        embedding_api_key: str | None,
+        embedding_base_url: str | None,
     ) -> Namespace:
-        ns = Namespace(tenant_id=tenant_id, name=name)
+        ns = Namespace(
+            tenant_id=tenant_id, 
+            name=name,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            llm_api_key=llm_api_key,
+            llm_base_url=llm_base_url,
+            embedding_provider=embedding_provider,
+            embedding_model=embedding_model,
+            embedding_api_key=embedding_api_key,
+            embedding_base_url=embedding_base_url,
+        )
         self.session.add(ns)
         await self.session.flush()
         return ns

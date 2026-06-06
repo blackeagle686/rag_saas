@@ -43,7 +43,18 @@ class NamespaceService:
         if existing:
             raise ConflictError(detail=f"Namespace '{request.name}' already exists.")
 
-        ns = await self.ns_repo.create(tenant.id, request.name)
+        ns = await self.ns_repo.create(
+            tenant.id, 
+            request.name,
+            llm_provider=request.llm_provider,
+            llm_model=request.llm_model,
+            llm_api_key=request.llm_api_key,
+            llm_base_url=request.llm_base_url,
+            embedding_provider=request.embedding_provider,
+            embedding_model=request.embedding_model,
+            embedding_api_key=request.embedding_api_key,
+            embedding_base_url=request.embedding_base_url,
+        )
 
         logger.info(
             "namespace_created",
@@ -56,6 +67,10 @@ class NamespaceService:
             name=ns.name,
             doc_count=ns.doc_count,
             token_count=ns.token_count,
+            llm_provider=ns.llm_provider,
+            llm_model=ns.llm_model,
+            embedding_provider=ns.embedding_provider,
+            embedding_model=ns.embedding_model,
             created_at=ns.created_at,
         )
 
@@ -70,6 +85,10 @@ class NamespaceService:
                     name=ns.name,
                     doc_count=ns.doc_count,
                     token_count=ns.token_count,
+                    llm_provider=ns.llm_provider,
+                    llm_model=ns.llm_model,
+                    embedding_provider=ns.embedding_provider,
+                    embedding_model=ns.embedding_model,
                     created_at=ns.created_at,
                 )
                 for ns in namespaces
@@ -89,6 +108,10 @@ class NamespaceService:
             name=ns.name,
             doc_count=ns.doc_count,
             token_count=ns.token_count,
+            llm_provider=ns.llm_provider,
+            llm_model=ns.llm_model,
+            embedding_provider=ns.embedding_provider,
+            embedding_model=ns.embedding_model,
             created_at=ns.created_at,
         )
 
