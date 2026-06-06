@@ -21,12 +21,16 @@ class ApiKeyRepository:
         key_hash: str,
         prefix: str,
         label: str | None = None,
+        namespace_id: uuid.UUID | None = None,
+        role: str = "admin",
     ) -> ApiKey:
         api_key = ApiKey(
             tenant_id=tenant_id,
             key_hash=key_hash,
             prefix=prefix,
             label=label,
+            namespace_id=namespace_id,
+            role=role,
         )
         self.session.add(api_key)
         await self.session.flush()

@@ -43,6 +43,8 @@ class KeyService:
             key_hash=key_hash,
             prefix=prefix,
             label=request.label,
+            namespace_id=request.namespace_id,
+            role=request.role,
         )
 
         return CreateKeyResponse(
@@ -50,6 +52,8 @@ class KeyService:
             key=raw_key,
             prefix=prefix,
             label=api_key.label,
+            namespace_id=api_key.namespace_id,
+            role=api_key.role,
             created_at=api_key.created_at,
         )
 
@@ -64,6 +68,8 @@ class KeyService:
                     prefix=k.prefix,
                     label=k.label,
                     is_active=k.is_active,
+                    namespace_id=k.namespace_id,
+                    role=k.role,
                     created_at=k.created_at,
                     last_used=k.last_used,
                 )
