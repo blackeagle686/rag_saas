@@ -26,9 +26,10 @@ const PlaygroundTab = () => {
   const loadNamespaces = async () => {
     try {
       const data = await api.getNamespaces();
-      setNamespaces(data || []);
-      if (data && data.length > 0) {
-        setSelectedNamespace(data[0].name);
+      const nsList = data?.namespaces || [];
+      setNamespaces(nsList);
+      if (nsList.length > 0) {
+        setSelectedNamespace(nsList[0].name);
       }
     } catch (error) {
       console.error('Failed to load namespaces for playground', error);

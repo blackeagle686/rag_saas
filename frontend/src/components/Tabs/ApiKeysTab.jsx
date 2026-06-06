@@ -18,7 +18,7 @@ const ApiKeysTab = () => {
     setLoading(true);
     try {
       const data = await api.getKeys();
-      setKeys(data || []);
+      setKeys(data?.keys || []);
     } catch (error) {
       setAlert({ type: 'error', message: 'Failed to load API keys' });
     } finally {
@@ -30,7 +30,7 @@ const ApiKeysTab = () => {
     e.preventDefault();
     try {
       const data = await api.createKey(newKeyLabel);
-      setRawKey(data.raw_key);
+      setRawKey(data.key);
       setShowCreateModal(false);
       setNewKeyLabel('');
       loadKeys();
