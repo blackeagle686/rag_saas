@@ -74,20 +74,25 @@ def process_document(
             )
             return {"status": "failed", "reason": "no_text_content"}
 
-        # 4. Chunk text
+        # 4. Fetch namespace config
+        ns_config = _get_namespace_config_sync(namespace_id)
+        if not ns_config:
+            raise Exception("Namespace not found")
+
+        # 5. Chunk text
         chunks = _chunk_text(
             text,
             chunk_size=settings.chunk_size_tokens,
             overlap=settings.chunk_overlap_tokens,
         )
 
-        # 5. Generate embeddings
+        # 6. Generate embeddings
         embeddings = _generate_embeddings(
             chunks,
-            api_key=settings.openai_api_key,
-            model=settings.embedding_model,
-            dimensions=settings.embedding_dimensions,
-            batch_size=settings.embedding_batch_size,
+            provider=ns_config["embedding_provider"],
+            model=ns_config["embedding_model"],
+            api_key=ns_config["embedding_api_key"],
+            base_url=ns_config["embedding_base_url"],
             mock=settings.mock_llm,
         )
 
@@ -350,40 +355,27 @@ def _get_overlap(text: str, overlap_tokens: int, count_tokens) -> str:  # type: 
 
 def _generate_embeddings(
     chunks: list[str],
-    api_key: str,
+    provider: str,
     model: str,
-    dimensions: int,
-    batch_size: int = 100,
+    api_key: str | None,
+    base_url: str | None,
     mock: bool = False,
 ) -> list[list[float]]:
-    """Generate embeddings for all chunks in batches."""
+    """Generate embeddings for all chunks using EmbeddingService."""
     if mock:
-        return [[0.0] * dimensions for _ in chunks]
+        from api.config import get_settings
+        settings = get_settings()
+        return [[0.0] * settings.embedding_dimensions for _ in chunks]
 
-    from api.config import get_settings
-    settings = get_settings()
-
-    if settings.app_env == "development":
-        try:
-            from core.embeddings import embed_batch_locally
-            return embed_batch_locally(chunks, is_query=False)
-        except Exception as e:
-            logger.error("local_batch_embedding_failed", error=str(e))
-            raise
-
-    import openai
-
-    client = openai.OpenAI(api_key=api_key)
-    all_embeddings: list[list[float]] = []
-
+    from core.embedding_service import EmbeddingService
+    service = EmbeddingService(provider=provider, model=model, api_key=api_key, base_url=base_url)
+    
+    # Process in batches
+    batch_size = 100
+    all_embeddings = []
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i : i + batch_size]
-        response = client.embeddings.create(
-            model=model,
-            input=batch,
-            dimensions=dimensions,
-        )
-        batch_embeddings = [item.embedding for item in response.data]
+        batch_embeddings = service.embed_batch(batch, is_query=False)
         all_embeddings.extend(batch_embeddings)
 
     return all_embeddings
