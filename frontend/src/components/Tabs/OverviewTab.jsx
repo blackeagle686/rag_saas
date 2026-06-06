@@ -13,7 +13,7 @@ const OverviewTab = () => {
     setLoading(true);
     try {
       const nsData = await api.getNamespaces();
-      setNamespaces(nsData || []);
+      setNamespaces(nsData?.namespaces || []);
     } catch (error) {
       console.error('Failed to load overview data', error);
     } finally {

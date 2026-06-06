@@ -32,7 +32,7 @@ const NamespacesTab = () => {
     setLoading(true);
     try {
       const data = await api.getNamespaces();
-      setNamespaces(data || []);
+      setNamespaces(data?.namespaces || []);
     } catch (error) {
       setAlert({ type: 'error', message: 'Failed to load namespaces' });
     } finally {
@@ -44,7 +44,7 @@ const NamespacesTab = () => {
     setDocsLoading(true);
     try {
       const data = await api.listDocuments(nsName);
-      setDocuments(data || []);
+      setDocuments(data?.documents || []);
     } catch (error) {
       setAlert({ type: 'error', message: 'Failed to load documents' });
     } finally {
