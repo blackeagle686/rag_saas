@@ -8,11 +8,24 @@ const ApiKeysTab = () => {
   const [alert, setAlert] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKeyLabel, setNewKeyLabel] = useState('');
+  const [newKeyRole, setNewKeyRole] = useState('admin');
+  const [newKeyNamespace, setNewKeyNamespace] = useState('');
   const [rawKey, setRawKey] = useState(null);
+  const [namespaces, setNamespaces] = useState([]);
 
   useEffect(() => {
     loadKeys();
+    loadNamespaces();
   }, []);
+
+  const loadNamespaces = async () => {
+    try {
+      const data = await api.getNamespaces();
+      setNamespaces(data?.namespaces || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const loadKeys = async () => {
     setLoading(true);
@@ -29,10 +42,12 @@ const ApiKeysTab = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const data = await api.createKey(newKeyLabel);
+      const data = await api.createKey(newKeyLabel, newKeyNamespace || null, newKeyRole);
       setRawKey(data.key);
       setShowCreateModal(false);
       setNewKeyLabel('');
+      setNewKeyRole('admin');
+      setNewKeyNamespace('');
       loadKeys();
     } catch (error) {
       setAlert({ type: 'error', message: error.message || 'Failed to create key' });
@@ -80,6 +95,8 @@ const ApiKeysTab = () => {
               <tr>
                 <th>Key Prefix</th>
                 <th>Label</th>
+                <th>Role</th>
+                <th>Scope</th>
                 <th>Status</th>
                 <th>Last Used</th>
                 <th style={{ textAlign: 'right' }}>Action</th>
@@ -99,6 +116,8 @@ const ApiKeysTab = () => {
                   <tr key={k.id}>
                     <td><code>{k.prefix}...</code></td>
                     <td>{k.label || '-'}</td>
+                    <td><span style={{ fontSize: '0.8rem', padding: '2px 6px', background: 'var(--bg-card)', borderRadius: '4px' }}>{k.role === 'chat_only' ? 'Chat Only' : 'Admin'}</span></td>
+                    <td><span style={{ fontSize: '0.8rem', opacity: 0.8 }}>{k.namespace_id ? 'Single Namespace' : 'All Namespaces'}</span></td>
                     <td>
                       <span className={`status-badge ${k.is_active ? 'active' : 'revoked'}`}>
                         {k.is_active ? 'Active' : 'Revoked'}
@@ -136,6 +155,22 @@ const ApiKeysTab = () => {
                   value={newKeyLabel}
                   onChange={(e) => setNewKeyLabel(e.target.value)}
                 />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Key Role</label>
+                <select className="form-input" value={newKeyRole} onChange={(e) => setNewKeyRole(e.target.value)}>
+                  <option value="admin">Admin (Full Access)</option>
+                  <option value="chat_only">Chat Only (Cannot Ingest)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Namespace Scope</label>
+                <select className="form-input" value={newKeyNamespace} onChange={(e) => setNewKeyNamespace(e.target.value)}>
+                  <option value="">All Namespaces</option>
+                  {namespaces.map(ns => (
+                    <option key={ns.id} value={ns.id}>{ns.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
