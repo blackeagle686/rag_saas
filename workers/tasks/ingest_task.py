@@ -538,3 +538,26 @@ def _log_usage_event_sync(
         )
         conn.commit()
     engine.dispose()
+
+def _get_namespace_config_sync(namespace_id: str) -> dict | None:
+    """Fetch namespace LLM and embedding configurations."""
+    from sqlalchemy import create_engine, text
+    from api.config import get_settings
+
+    settings = get_settings()
+    sync_url = settings.database_url.replace("+asyncpg", "+psycopg2").replace("postgresql+asyncpg", "postgresql")
+
+    engine = create_engine(sync_url)
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(
+                "SELECT embedding_provider, embedding_model, embedding_api_key, embedding_base_url "
+                "FROM namespaces WHERE id = :ns_id"
+            ),
+            {"ns_id": namespace_id},
+        ).mappings().first()
+    engine.dispose()
+    
+    if result:
+        return dict(result)
+    return None
