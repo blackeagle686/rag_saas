@@ -40,16 +40,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         Path(settings.local_storage_path).mkdir(parents=True, exist_ok=True)
 
-    # Pre-initialize the local embedding model so the first
-    # upload/query doesn't trigger a download.
-    if settings.app_env == "development" and not settings.mock_llm:
-        try:
-            from core.embedding_service import EmbeddingService
-
-            EmbeddingService().initialize()
-        except Exception:
-            logger = get_logger("lifespan")
-            logger.warning("embedding_model_init_failed", exc_info=True)
+    # Local embeddings were removed in Phase 3.
+    # Namespace-specific remote embeddings are now used dynamically.
 
     yield
 
