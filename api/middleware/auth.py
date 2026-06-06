@@ -1,23 +1,24 @@
 """
-API Key authentication middleware.
+Authentication middleware.
 
-Extracts the API key from the Authorization header,
-verifies it against stored bcrypt hashes, and attaches
-the tenant to the request state.
+Extracts the API key or JWT from the Authorization header,
+verifies it, and attaches the tenant to the request state.
 """
 
 from __future__ import annotations
 
 import uuid
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 from api.config import Settings, get_settings
 from core.exceptions import InvalidAPIKeyError, MissingAPIKeyError, TenantSuspendedError
-from core.security import verify_api_key
+from core.security import verify_api_key, decode_access_token
 from db.engine import get_db_session
 from db.models.tenant import Tenant, TenantStatus
+from db.models.api_key import ApiKey
 from db.repositories.api_key_repo import ApiKeyRepository
 from db.repositories.tenant_repo import TenantRepository
 
@@ -28,54 +29,60 @@ async def get_current_tenant(
     settings: Settings = Depends(get_settings),
 ) -> Tenant:
     """
-    FastAPI dependency that authenticates the request via API key.
-
-    Flow:
-    1. Extract key from Authorization: Bearer <key>
-    2. Find matching active keys by prefix
-    3. Verify bcrypt hash
-    4. Check tenant status
-    5. Update last_used timestamp
-    6. Return tenant
-
-    Raises:
-        MissingAPIKeyError: No Authorization header
-        InvalidAPIKeyError: Key not found or inactive
-        TenantSuspendedError: Tenant account is suspended
+    FastAPI dependency that authenticates the request via API key OR JWT.
     """
-    # 1. Extract key from header
     auth_header = request.headers.get("Authorization")
     if not auth_header:
-        raise MissingAPIKeyError()
+        raise MissingAPIKeyError(detail="Missing Authorization header")
 
     parts = auth_header.split(" ", 1)
     if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise MissingAPIKeyError(detail="Authorization header must be: Bearer <api_key>")
+        raise MissingAPIKeyError(detail="Authorization header must be: Bearer <token>")
 
-    raw_key = parts[1].strip()
-    if not raw_key:
+    token = parts[1].strip()
+    if not token:
         raise MissingAPIKeyError()
 
-    # 2. Extract prefix for faster lookup
+    tenant_repo = TenantRepository(db)
+
+    # 1. Check if JWT (usually much longer than API keys and starts with eyJ)
+    if token.startswith("eyJ"):
+        payload = decode_access_token(token)
+        if not payload or "sub" not in payload:
+            raise HTTPException(status_code=401, detail="Invalid or expired JWT token")
+        
+        tenant_id = uuid.UUID(payload["sub"])
+        tenant = await tenant_repo.get_by_id(tenant_id)
+        
+        if not tenant:
+            raise HTTPException(status_code=401, detail="User not found")
+        if tenant.status == TenantStatus.SUSPENDED:
+            raise TenantSuspendedError()
+        if tenant.status == TenantStatus.CANCELLED:
+            raise HTTPException(status_code=401, detail="Account cancelled")
+            
+        request.state.tenant = tenant
+        request.state.tenant_id = tenant.id
+        request.state.api_key = None
+        return tenant
+
+    # 2. Otherwise treat as API Key
     prefix = settings.api_key_prefix
-    if not raw_key.startswith(prefix):
+    if not token.startswith(prefix):
         raise InvalidAPIKeyError(detail="API key must start with the correct prefix.")
 
-    # 3. Find candidate keys and verify
     key_repo = ApiKeyRepository(db)
     candidates = await key_repo.get_active_keys_by_prefix(prefix)
 
     matched_key = None
     for candidate in candidates:
-        if verify_api_key(raw_key, candidate.key_hash):
+        if verify_api_key(token, candidate.key_hash):
             matched_key = candidate
             break
 
     if matched_key is None:
         raise InvalidAPIKeyError()
 
-    # 4. Load tenant
-    tenant_repo = TenantRepository(db)
     tenant = await tenant_repo.get_by_id(matched_key.tenant_id)
 
     if tenant is None:
@@ -87,12 +94,20 @@ async def get_current_tenant(
     if tenant.status == TenantStatus.CANCELLED:
         raise InvalidAPIKeyError(detail="This account has been cancelled.")
 
-    # 5. Update last_used (fire and forget — don't block the response)
+    # Enforce Role-Based Access
+    # If the key is 'chat_only', it cannot hit /ingest endpoints
+    if matched_key.role == "chat_only" and "ingest" in request.url.path:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This API key does not have permission to ingest documents."
+        )
+
+    # Update last_used
     await key_repo.update_last_used(matched_key.id)
 
-    # 6. Attach tenant to request state for downstream use
+    # Attach to request state
     request.state.tenant = tenant
     request.state.tenant_id = tenant.id
-    request.state.api_key_id = matched_key.id
+    request.state.api_key = matched_key
 
     return tenant
