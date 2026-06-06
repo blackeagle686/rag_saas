@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 import uuid
 
+import sqlalchemy as sa
 from sqlalchemy import ForeignKey, Integer, String, Text, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -31,6 +32,10 @@ class FileType(str, enum.Enum):
 
 class Document(TimestampMixin, Base):
     __tablename__ = "documents"
+
+    __table_args__ = (
+        sa.Index("ix_documents_namespace_created", "namespace_id", sa.text("created_at DESC")),
+    )
 
     namespace_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
