@@ -17,6 +17,12 @@ class CreateKeyRequest(BaseModel):
         description="Optional label for this key (e.g. 'production', 'staging')",
         examples=["production-server"],
     )
+    namespace_id: uuid.UUID | None = Field(
+        None, description="Optional namespace ID to scope this key to"
+    )
+    role: str = Field(
+        default="admin", description="'admin' or 'chat_only'"
+    )
 
 
 class CreateKeyResponse(BaseModel):
@@ -38,6 +44,8 @@ class CreateKeyResponse(BaseModel):
         examples=["rgs_live_aBcDeFgH..."],
     )
     label: str | None
+    namespace_id: uuid.UUID | None
+    role: str
     created_at: datetime
 
 
@@ -48,6 +56,8 @@ class KeyInfo(BaseModel):
     prefix: str
     label: str | None
     is_active: bool
+    namespace_id: uuid.UUID | None
+    role: str
     created_at: datetime
     last_used: datetime | None
 
