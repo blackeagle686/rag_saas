@@ -39,27 +39,8 @@ class Tenant(TimestampMixin, Base):
         nullable=False,
     )
 
-    # Custom LLM Settings (defaults to LongCat-Flash-Lite)
-    llm_provider: Mapped[str] = mapped_column(
-        String(50),
-        default="openai",
-        nullable=False,
-    )
-    llm_model: Mapped[str] = mapped_column(
-        String(100),
-        default="LongCat-Flash-Lite",
-        nullable=False,
-    )
-    llm_api_key: Mapped[str] = mapped_column(
-        String(255),
-        default="ak_2yp3Xw1Ny7ky2pF7er9x93ZO9jj6G",
-        nullable=False,
-    )
-    llm_base_url: Mapped[str] = mapped_column(
-        String(255),
-        default="https://api.longcat.chat/openai",
-        nullable=False,
-    )
+    # Authentication
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Relationships
     api_keys = relationship("ApiKey", back_populates="tenant", cascade="all, delete-orphan")

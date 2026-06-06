@@ -43,6 +43,19 @@ class ApiKey(TimestampMixin, Base):
         nullable=False,
         index=True,
     )
+    namespace_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("namespaces.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment="If set, this key is scoped to a specific namespace",
+    )
+    role: Mapped[str] = mapped_column(
+        String(20),
+        default="admin",
+        nullable=False,
+        comment="'admin' or 'chat_only'",
+    )
 
     # Relationships
     tenant = relationship("Tenant", back_populates="api_keys")
