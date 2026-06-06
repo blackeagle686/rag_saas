@@ -59,6 +59,7 @@ class ApiKey(TimestampMixin, Base):
 
     # Relationships
     tenant = relationship("Tenant", back_populates="api_keys")
+    namespace = relationship("Namespace")
 
     def __repr__(self) -> str:
         return f"<ApiKey {self.prefix} active={self.is_active}>"
