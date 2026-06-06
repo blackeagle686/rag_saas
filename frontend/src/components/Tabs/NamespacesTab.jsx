@@ -84,10 +84,7 @@ const NamespacesTab = () => {
       setAlert({ type: 'error', message: error.message || 'Failed to create namespace' });
     }
   };
-    } catch (error) {
-      setAlert({ type: 'error', message: error.message || 'Failed to create namespace' });
-    }
-  };
+
 
   const handleDeleteNamespace = async () => {
     if (!confirm(`Are you sure you want to delete the namespace '${activeNamespace}' and all its documents? This cannot be undone.`)) return;
