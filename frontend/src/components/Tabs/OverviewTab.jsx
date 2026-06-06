@@ -22,7 +22,7 @@ const OverviewTab = () => {
   };
 
   const totalNamespaces = namespaces.length;
-  const totalDocs = namespaces.reduce((acc, ns) => acc + (ns.files_count || 0), 0);
+  const totalDocs = namespaces.reduce((acc, ns) => acc + (ns.doc_count || 0), 0);
 
   return (
     <section className="tab-content">
@@ -76,8 +76,8 @@ const OverviewTab = () => {
                 namespaces.slice(0, 5).map(ns => (
                   <tr key={ns.name}>
                     <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{ns.name}</td>
-                    <td>{ns.files_count}</td>
-                    <td>~{ns.tokens_count.toLocaleString()}</td>
+                    <td>{ns.doc_count || 0}</td>
+                    <td>~{(ns.token_count || 0).toLocaleString()}</td>
                   </tr>
                 ))
               )}

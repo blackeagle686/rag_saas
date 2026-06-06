@@ -284,8 +284,8 @@ const NamespacesTab = () => {
                 namespaces.map(ns => (
                   <tr key={ns.name}>
                     <td style={{ fontWeight: 500 }}>{ns.name}</td>
-                    <td>{ns.files_count}</td>
-                    <td>~{ns.tokens_count.toLocaleString()}</td>
+                    <td>{ns.doc_count || 0}</td>
+                    <td>~{(ns.token_count || 0).toLocaleString()}</td>
                     <td>{new Date(ns.created_at).toLocaleDateString()}</td>
                     <td style={{ textAlign: 'right' }}>
                       <button className="btn btn-secondary btn-sm" onClick={() => { setActiveNamespace(ns.name); loadDocuments(ns.name); }}>Manage</button>
