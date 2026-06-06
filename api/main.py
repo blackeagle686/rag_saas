@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from api.config import get_settings
 from api.middleware.audit_log import AuditLogMiddleware
 from api.middleware.security_headers import SecurityHeadersMiddleware
-from api.routers import health, keys, namespaces, ingest, query, tenant
+from api.routers import health, keys, namespaces, ingest, query, tenant, auth
 from api.routers.namespaces import documents_router
 from core.exceptions import RAGaaSError, RateLimitExceededError
 from core.logging import setup_logging, get_logger
@@ -136,6 +136,7 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(query.router)
     app.include_router(tenant.router)
+    app.include_router(auth.router)
 
     return app
 
