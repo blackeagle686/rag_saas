@@ -27,20 +27,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = (key) => {
-    api.setApiKey(key);
+  const login = async (email, password) => {
+    await api.login(email, password);
     setIsAuthenticated(true);
-    checkHealth(); // Re-check health with new key
+    checkHealth(); // Re-check health with new token
+  };
+
+  const register = async (name, email, password) => {
+    await api.register(name, email, password);
+    setIsAuthenticated(true);
+    checkHealth(); // Re-check health with new token
   };
 
   const logout = () => {
-    api.clearApiKey();
+    api.clearToken();
     setIsAuthenticated(false);
     setApiHealth('checking');
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, apiHealth }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, register, logout, apiHealth }}>
       {children}
     </AuthContext.Provider>
   );
