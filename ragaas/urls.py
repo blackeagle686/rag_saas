@@ -1,8 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView
 from .views import (
-    RegisterView, TenantSettingsView, NamespaceViewSet, NamespaceDocumentListView,
+    RegisterView, LoginView, TenantSettingsView, NamespaceViewSet, NamespaceDocumentListView,
     ApiKeyViewSet, IngestView, QueryView
 )
 
@@ -12,7 +11,7 @@ router.register(r'keys', ApiKeyViewSet, basename='apikey')
 
 urlpatterns = [
     path('auth/register', RegisterView.as_view(), name='register'),
-    path('auth/login', TokenObtainPairView.as_view(), name='login'),
+    path('auth/login', LoginView.as_view(), name='login'),
     
     path('tenant/settings', TenantSettingsView.as_view(), name='tenant-settings'),
     
