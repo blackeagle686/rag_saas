@@ -43,6 +43,11 @@ class Tenant(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     
+    llm_provider = models.CharField(max_length=50, default='openai')
+    llm_model = models.CharField(max_length=100, default='gpt-4o-mini')
+    llm_api_key = models.CharField(max_length=255, null=True, blank=True)
+    llm_base_url = models.CharField(max_length=255, null=True, blank=True)
+    
     objects = TenantManager()
     
     USERNAME_FIELD = 'email'
