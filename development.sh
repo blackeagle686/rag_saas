@@ -18,17 +18,13 @@ mkdir -p "$PID_DIR"
 
 # Executable Paths
 VENV_PYTHON="$CWD/venv/bin/python"
-VENV_UVICORN="$CWD/venv/bin/uvicorn"
 VENV_CELERY="$CWD/venv/bin/celery"
-VENV_ALEMBIC="$CWD/venv/bin/alembic"
 
 # Fallback to system executables if virtual environment is not configured
 if [ ! -f "$VENV_PYTHON" ]; then
-  echo -e "${YELLOW}⚠️  Virtual environment 'venv' not found. Using system python/celery/uvicorn...${RESET}"
+  echo -e "${YELLOW}⚠️  Virtual environment 'venv' not found. Using system python/celery...${RESET}"
   VENV_PYTHON="python3"
-  VENV_UVICORN="uvicorn"
   VENV_CELERY="celery"
-  VENV_ALEMBIC="alembic"
 fi
 
 # Detect docker compose version
@@ -174,23 +170,15 @@ run_services() {
 
   # 2. Run Database Migrations
   echo -e "${CYAN}[*] Applying database migrations...${RESET}"
-  $VENV_ALEMBIC upgrade head > "$LOG_DIR/migrations.log" 2>&1
+  $VENV_PYTHON manage.py migrate > "$LOG_DIR/migrations.log" 2>&1
   if [ $? -eq 0 ]; then
     echo -e "${GREEN}   ✓ Database migrated.${RESET}"
   else
     echo -e "${YELLOW}   ⚠️  Migration failed or skipped (check logs/migrations.log for details).${RESET}"
   fi
 
-  # 3. Seed Database
-  echo -e "${CYAN}[*] Seeding database with test tenant and API key...${RESET}"
-  $VENV_PYTHON -m scripts.seed > "$LOG_DIR/seed.log" 2>&1
-  if [ $? -eq 0 ]; then
-    echo -e "${GREEN}   ✓ Seed complete. Checked/Created test tenant.${RESET}"
-    # Print the seeded API key if newly created
-    grep -A 5 "YOUR API KEY" "$LOG_DIR/seed.log" | sed 's/^/     /'
-  else
-    echo -e "${YELLOW}   ⚠️  Seed task encountered issues (check logs/seed.log).${RESET}"
-  fi
+  # 3. Seed Database (Skipped for Django version)
+  echo -e "${CYAN}[*] Seeding step is skipped for the Django version...${RESET}"
 
   # 4. Download & Initialize Local Embedding Model (first time only)
   echo -e "${CYAN}[*] Initializing local embedding model (Qwen/Qwen3-Embedding-0.6B)...${RESET}"
@@ -201,14 +189,14 @@ run_services() {
     echo -e "${YELLOW}   ⚠️  Embedding model init had issues (check logs/model_download.log).${RESET}"
   fi
 
-  # 5. Start FastAPI Backend
-  if is_running "$PID_DIR/fastapi.pid"; then
-    echo -e "${YELLOW}⚠️  FastAPI is already running (PID: $(cat "$PID_DIR/fastapi.pid")).${RESET}"
+  # 5. Start Django Backend
+  if is_running "$PID_DIR/django.pid"; then
+    echo -e "${YELLOW}⚠️  Django is already running (PID: $(cat "$PID_DIR/django.pid")).${RESET}"
   else
-    echo -e "${CYAN}[*] Starting FastAPI (api.main)...${RESET}"
-    $VENV_UVICORN api.main:app --host 0.0.0.0 --port 8000 --reload > "$LOG_DIR/fastapi.log" 2>&1 &
-    echo $! > "$PID_DIR/fastapi.pid"
-    echo -e "${GREEN}   ✓ FastAPI running in background.${RESET}"
+    echo -e "${CYAN}[*] Starting Django backend...${RESET}"
+    $VENV_PYTHON manage.py runserver 0.0.0.0:8000 > "$LOG_DIR/django.log" 2>&1 &
+    echo $! > "$PID_DIR/django.pid"
+    echo -e "${GREEN}   ✓ Django running in background.${RESET}"
   fi
 
   # 6. Start Celery Worker
@@ -216,7 +204,7 @@ run_services() {
     echo -e "${YELLOW}⚠️  Celery worker is already running (PID: $(cat "$PID_DIR/celery.pid")).${RESET}"
   else
     echo -e "${CYAN}[*] Starting Celery worker...${RESET}"
-    $VENV_CELERY -A workers.celery_app worker --loglevel=info > "$LOG_DIR/celery.log" 2>&1 &
+    $VENV_CELERY -A config worker --loglevel=info > "$LOG_DIR/celery.log" 2>&1 &
     echo $! > "$PID_DIR/celery.pid"
     echo -e "${GREEN}   ✓ Celery worker running in background.${RESET}"
   fi
@@ -233,10 +221,10 @@ run_services() {
 
   echo -e "\n${GREEN}🚀 RAGaaS environment is ready!${RESET}"
   echo -e "   - Frontend Console:   ${BLUE}http://localhost:5000${RESET}"
-  echo -e "   - FastAPI Gateway:    ${BLUE}http://localhost:8000${RESET}"
-  echo -e "   - FastAPI Swagger:    ${BLUE}http://localhost:8000/docs${RESET}"
+  echo -e "   - Django API:         ${BLUE}http://localhost:8000/v1/${RESET}"
+  echo -e "   - Django Admin:       ${BLUE}http://localhost:8000/admin/${RESET}"
   echo -e "   - Qdrant Dashboard:   ${BLUE}http://localhost:6333/dashboard${RESET}"
-  echo -e "\n   To view logs, run:    ${CYAN}./dev.sh logs [fastapi|celery|frontend]${RESET}"
+  echo -e "\n   To view logs, run:    ${CYAN}./dev.sh logs [django|celery|frontend]${RESET}"
   echo -e "   To stop services, run: ${CYAN}./dev.sh stop${RESET}\n"
 }
 
@@ -262,13 +250,13 @@ stop_services() {
     echo -e "${YELLOW}   Celery worker not running.${RESET}"
   fi
 
-  # Stop FastAPI
-  if is_running "$PID_DIR/fastapi.pid"; then
-    local pid=$(cat "$PID_DIR/fastapi.pid")
-    echo -e "${CYAN}[*] Stopping FastAPI backend (PID: $pid)...${RESET}"
-    kill "$pid" && rm -f "$PID_DIR/fastapi.pid"
+  # Stop Django
+  if is_running "$PID_DIR/django.pid"; then
+    local pid=$(cat "$PID_DIR/django.pid")
+    echo -e "${CYAN}[*] Stopping Django backend (PID: $pid)...${RESET}"
+    kill "$pid" && rm -f "$PID_DIR/django.pid"
   else
-    echo -e "${YELLOW}   FastAPI backend not running.${RESET}"
+    echo -e "${YELLOW}   Django backend not running.${RESET}"
   fi
 
   # Stop Docker containers
@@ -284,9 +272,9 @@ stop_services() {
 view_logs() {
   local service="$1"
   case "$service" in
-    fastapi|api)
-      echo -e "${BLUE}📋 Tailing FastAPI backend logs (logs/fastapi.log):${RESET}"
-      tail -n 50 -f "$LOG_DIR/fastapi.log"
+    django|api)
+      echo -e "${BLUE}📋 Tailing Django backend logs (logs/django.log):${RESET}"
+      tail -n 50 -f "$LOG_DIR/django.log"
       ;;
     celery|worker)
       echo -e "${BLUE}📋 Tailing Celery worker logs (logs/celery.log):${RESET}"
@@ -318,7 +306,7 @@ view_logs() {
       fi
       ;;
     *)
-      echo -e "${RED}❌ Unknown service: '$service'. Available options: [fastapi|celery|frontend|postgres|redis|qdrant]${RESET}"
+      echo -e "${RED}❌ Unknown service: '$service'. Available options: [django|celery|frontend|postgres|redis|qdrant]${RESET}"
       exit 1
       ;;
   esac
@@ -337,15 +325,15 @@ case "$COMMAND" in
     ;;
   logs)
     if [ -z "$1" ]; then
-      echo -e "${RED}❌ Please specify a service to tail logs. Example: ./dev.sh logs fastapi${RESET}"
-      echo -e "   Valid services: [fastapi|celery|frontend|postgres|redis|qdrant]"
+      echo -e "${RED}❌ Please specify a service to tail logs. Example: ./dev.sh logs django${RESET}"
+      echo -e "   Valid services: [django|celery|frontend|postgres|redis|qdrant]"
       exit 1
     fi
     view_logs "$1"
     ;;
   status)
     echo -e "${BLUE}📊 Service Status:${RESET}"
-    is_running "$PID_DIR/fastapi.pid" && echo -e "   - FastAPI:    ${GREEN}RUNNING (PID: $(cat "$PID_DIR/fastapi.pid"))${RESET}" || echo -e "   - FastAPI:    ${RED}STOPPED${RESET}"
+    is_running "$PID_DIR/django.pid" && echo -e "   - Django:     ${GREEN}RUNNING (PID: $(cat "$PID_DIR/django.pid"))${RESET}" || echo -e "   - Django:     ${RED}STOPPED${RESET}"
     is_running "$PID_DIR/celery.pid" && echo -e "   - Celery:     ${GREEN}RUNNING (PID: $(cat "$PID_DIR/celery.pid"))${RESET}" || echo -e "   - Celery:     ${RED}STOPPED${RESET}"
     is_running "$PID_DIR/frontend.pid" && echo -e "   - Frontend:   ${GREEN}RUNNING (PID: $(cat "$PID_DIR/frontend.pid"))${RESET}" || echo -e "   - Frontend:   ${RED}STOPPED${RESET}"
     if [ -n "$DOCKER_COMPOSE_CMD" ]; then
@@ -355,9 +343,9 @@ case "$COMMAND" in
     ;;
   *)
     echo -e "${YELLOW}Usage: ./dev.sh {run|stop|logs|status}${RESET}"
-    echo -e "   - ${CYAN}run${RESET}     : Starts postgres, redis, qdrant, fastapi, celery, and frontend"
+    echo -e "   - ${CYAN}run${RESET}     : Starts postgres, redis, qdrant, django, celery, and frontend"
     echo -e "   - ${CYAN}stop${RESET}    : Stops all background processes and docker services"
-    echo -e "   - ${CYAN}logs [s]${RESET}: Tails logs for the specified service [fastapi|celery|frontend|postgres|redis|qdrant]"
+    echo -e "   - ${CYAN}logs [s]${RESET}: Tails logs for the specified service [django|celery|frontend|postgres|redis|qdrant]"
     echo -e "   - ${CYAN}status${RESET}  : Checks what processes are currently running"
     exit 1
     ;;

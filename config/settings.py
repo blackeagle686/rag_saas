@@ -28,6 +28,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-k=h)%_!dtuoiy_=-)501!xc!
 DEBUG = env('DEBUG', default=True)
 
 ALLOWED_HOSTS = ['*']
+APPEND_SLASH = False
 
 # Application definition
 INSTALLED_APPS = [
