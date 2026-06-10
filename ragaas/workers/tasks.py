@@ -56,56 +56,38 @@ def process_document(document_id):
             base_url=ns.embedding_base_url or ns.tenant.embedding_base_url
         )
         
-        if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
-            qdrant = QdrantClient(
-                url=f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}",
-                api_key=settings.QDRANT_API_KEY,
-                check_compatibility=False
-            )
-        else:
-            qdrant = QdrantClient(
-                host=settings.QDRANT_HOST, 
-                port=settings.QDRANT_PORT,
-                check_compatibility=False
-            )
-            
+        import chromadb
+        import os
+        chroma_client = chromadb.PersistentClient(path=os.path.join(settings.BASE_DIR, "chroma_db"))
         collection_name = f"tenant_{doc.namespace.tenant.id.hex}"
         
-        try:
-            qdrant.get_collection(collection_name)
-        except:
-            qdrant.create_collection(
-                collection_name=collection_name,
-                vectors_config=qdrant_models.VectorParams(
-                    size=settings.EMBEDDING_DIMENSIONS, 
-                    distance=qdrant_models.Distance.COSINE
-                )
-            )
-            
-        points = []
+        collection = chroma_client.get_or_create_collection(
+            name=collection_name,
+            metadata={"hnsw:space": "cosine"}
+        )
+        
         # Optimization: Use embed_batch for the entire list of chunks at once
         vectors = embedder.embed_batch(chunks) if hasattr(embedder, 'embed_batch') else [embedder.embed_query(c) for c in chunks]
         
-        for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
-            points.append(
-                qdrant_models.PointStruct(
-                    id=uuid.uuid4().hex,
-                    vector=vector,
-                    payload={
-                        "text": chunk,
-                        "document_id": str(doc.id),
-                        "namespace_id": str(ns.id),
-                        "filename": doc.filename,
-                        "chunk_index": i
-                    }
-                )
-            )
+        ids = []
+        metadatas = []
+        
+        for i, chunk in enumerate(chunks):
+            ids.append(uuid.uuid4().hex)
+            metadatas.append({
+                "document_id": str(doc.id),
+                "namespace_id": str(ns.id),
+                "filename": doc.filename,
+                "chunk_index": i
+            })
             
         batch_size = 100
-        for i in range(0, len(points), batch_size):
-            qdrant.upsert(
-                collection_name=collection_name,
-                points=points[i:i + batch_size]
+        for i in range(0, len(chunks), batch_size):
+            collection.add(
+                ids=ids[i:i + batch_size],
+                embeddings=vectors[i:i + batch_size],
+                documents=chunks[i:i + batch_size],
+                metadatas=metadatas[i:i + batch_size]
             )
             
         doc.status = 'ready'
