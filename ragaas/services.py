@@ -32,9 +32,32 @@ class NamespaceService:
     @staticmethod
     def create_namespace(tenant, data):
         from phoenix.framework.rag.config import RAGConfig, CAGConfig, AgenticRAGConfig, MultiModalRAGConfig
+        from rest_framework.exceptions import ValidationError
         import dataclasses
         
         rag_type = data.get('rag_type', 'standard')
+        llm_model = data.get('llm_model', 'gpt-4o-mini')
+        embedding_provider = data.get('embedding_provider', 'dashscope')
+        
+        # Plan Enforcement
+        plan_limits = {
+            'free': {'rag': ['standard'], 'embed': ['sentence-transformers', 'dashscope', 'local']},
+            'start': {'rag': ['standard', 'advanced'], 'embed': ['sentence-transformers', 'dashscope', 'local']},
+            'mid': {'rag': ['standard', 'advanced', 'cag'], 'embed': ['sentence-transformers', 'dashscope', 'local', 'openai', 'cohere']},
+            'prime': {'rag': ['standard', 'advanced', 'cag', 'agentic', 'multimodal'], 'embed': ['sentence-transformers', 'dashscope', 'local', 'openai', 'cohere', 'voyage']},
+            'enterprise': {'rag': ['standard', 'advanced', 'cag', 'agentic', 'multimodal'], 'embed': ['sentence-transformers', 'dashscope', 'local', 'openai', 'cohere', 'voyage', 'custom']}
+        }
+        
+        active_limits = plan_limits.get(tenant.plan, plan_limits['free'])
+        
+        # Check specific feature overrides on the tenant model
+        allowed_rag = tenant.allowed_rag_types if tenant.allowed_rag_types else active_limits['rag']
+        
+        if rag_type not in allowed_rag:
+            raise ValidationError(f"RAG type '{rag_type}' is not available on the {tenant.plan.title()} plan.")
+            
+        if embedding_provider not in active_limits['embed']:
+            raise ValidationError(f"Embedding provider '{embedding_provider}' is not available on the {tenant.plan.title()} plan.")
         
         if rag_type == 'cag':
             phx_cfg = dataclasses.asdict(CAGConfig())
