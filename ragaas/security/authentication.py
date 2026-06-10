@@ -25,22 +25,21 @@ class ApiKeyAuthentication(authentication.BaseAuthentication):
             
         raw_key = auth_header.split(' ')[1]
         
-        # Keys have a prefix, we can optionally use it to filter, but here we'll just check all active keys
-        # Or more efficiently, since we don't have the unhashed random part easily indexable, 
-        # we have to iterate through the tenant's keys or use a prefix map if we had one.
-        # But for now, we iterate through keys starting with the same prefix.
-        prefix = raw_key[:8]  # Adjust based on how you saved prefix. _PREFIX_DISPLAY_LENGTH = 8? No, prefix is 'rgs_live_' + 8 chars?
-        
-        # In core.security, prefix is rgs_live_
-        # Actually, let's just do a linear check for now against active keys, or parse prefix better.
-        for api_key in ApiKey.objects.filter(is_active=True).select_related('tenant'):
-            if verify_api_key(raw_key, api_key.key_hash):
-                # Update last used
+        # Extract the display prefix to perform an O(1) indexed lookup
+        # The stored prefix format is 'rgs_live_' + 8 chars + '...'
+        # _KEY_PREFIX = "rgs_live_"
+        # _PREFIX_DISPLAY_LENGTH = 8
+        prefix_str = "rgs_live_"
+        if raw_key.startswith(prefix_str):
+            random_part = raw_key[len(prefix_str):]
+            display_prefix = f"{prefix_str}{random_part[:8]}..."
+            
+            api_key = ApiKey.objects.filter(prefix=display_prefix, is_active=True).select_related('tenant').first()
+            if api_key and verify_api_key(raw_key, api_key.key_hash):
                 from django.utils import timezone
                 api_key.last_used = timezone.now()
                 api_key.save(update_fields=['last_used'])
                 
-                # We return the tenant as the user, and the api_key as the auth object
                 return (api_key.tenant, api_key)
                 
         raise exceptions.AuthenticationFailed('Invalid API Key')
