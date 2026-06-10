@@ -224,6 +224,13 @@ class RAGaaSApiClient {
       body: JSON.stringify({ plan_id: planId }),
     });
   }
+
+  async mockCheckoutSuccess(planId) {
+    return this.request('/v1/billing/mock-success', {
+      method: 'POST',
+      body: JSON.stringify({ plan_id: planId }),
+    });
+  }
 }
 
 const api = new RAGaaSApiClient();
