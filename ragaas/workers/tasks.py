@@ -119,3 +119,4 @@ def process_document(document_id):
         doc.status = 'failed'
         doc.error_message = str(e)
         doc.save()
+        raise e
