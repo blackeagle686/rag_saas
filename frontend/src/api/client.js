@@ -124,7 +124,7 @@ class RAGaaSApiClient {
   }
 
   async listDocuments(namespaceName, limit = 50, offset = 0) {
-    return this.request(`/v1/namespaces/${namespaceName}/docs?limit=${limit}&offset=${offset}`);
+    return this.request(`/v1/namespaces/${namespaceName}/documents?limit=${limit}&offset=${offset}`);
   }
 
   async deleteDocument(docId) {
