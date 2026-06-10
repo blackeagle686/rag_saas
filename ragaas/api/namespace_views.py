@@ -2,6 +2,7 @@ from rest_framework import generics, status, views, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from ragaas.models import Namespace, Document, ApiKey
 from ragaas.api.serializers.core import NamespaceSerializer, NamespaceCreateSerializer, DocumentSerializer, ApiKeySerializer
 from ragaas.services import NamespaceService, KeyService
@@ -23,6 +24,7 @@ class NamespaceViewSet(viewsets.ModelViewSet):
             return NamespaceCreateSerializer
         return NamespaceSerializer
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -31,6 +33,7 @@ class NamespaceViewSet(viewsets.ModelViewSet):
             return Response({"detail": f"Namespace '{ns.name}' already exists."}, status=status.HTTP_409_CONFLICT)
         return Response(NamespaceSerializer(ns).data, status=status.HTTP_201_CREATED)
 
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         confirm = request.data.get('confirm', False)
         if str(confirm).lower() != 'true':
@@ -66,6 +69,7 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response({"keys": serializer.data})
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         label = request.data.get('label', 'Unnamed Key')
         role = request.data.get('role', 'admin')
@@ -80,6 +84,7 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
             "id": api_key.id
         }, status=status.HTTP_201_CREATED)
 
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         api_key = self.get_object()
         api_key.delete()
