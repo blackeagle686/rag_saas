@@ -4,8 +4,8 @@ FROM python:3.12-slim AS builder
 WORKDIR /build
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip --root-user-action=ignore \
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt --root-user-action=ignore
 
 # == Stage 2: Runtime ==
 FROM python:3.12-slim AS runtime
