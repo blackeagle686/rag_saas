@@ -8,6 +8,7 @@ const NamespacesTab = () => {
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState(null);
   const [plan, setPlan] = useState('free');
+  const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
   
   // Modals
@@ -43,6 +44,7 @@ const NamespacesTab = () => {
 
   const handleCreateNamespace = async (e) => {
     e.preventDefault();
+    setIsCreating(true);
     try {
       await api.createNamespace(newNsName, {
         rag_type: ragType,
@@ -54,6 +56,8 @@ const NamespacesTab = () => {
       loadNamespaces();
     } catch (error) {
       setAlert({ type: 'error', message: error.message || 'Failed to create namespace' });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -176,8 +180,10 @@ const NamespacesTab = () => {
               </div>
 
               <div className="modal-footer" style={{ marginTop: '2rem' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Namespace</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)} disabled={isCreating}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={isCreating}>
+                  {isCreating ? <div className="spinner" style={{width:'1rem', height:'1rem', borderWidth:'2px'}}></div> : 'Create Namespace'}
+                </button>
               </div>
             </form>
           </div>
