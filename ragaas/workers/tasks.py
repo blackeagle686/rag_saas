@@ -116,6 +116,8 @@ def process_document(document_id):
         qdrant_client = QdrantClient(url=qdrant_url)
         collection_name = "ragaas_vectors"
         
+        vectors = embedder.embed_batch(chunks) if hasattr(embedder, 'embed_batch') else [embedder.embed_query(c) for c in chunks]
+        
         try:
             qdrant_client.get_collection(collection_name)
         except Exception:
