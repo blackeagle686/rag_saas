@@ -25,10 +25,12 @@ const NamespaceDetail = () => {
   
   // Settings Form State
   const [ragType, setRagType] = useState('standard');
-  const [llmProvider, setLlmProvider] = useState('openai');
-  const [llmModel, setLlmModel] = useState('gpt-4o-mini');
-  const [embeddingProvider, setEmbeddingProvider] = useState('dashscope');
-  const [embeddingModel, setEmbeddingModel] = useState('text-embedding-v4');
+  const [llmProvider, setLlmProvider] = useState('longcat2-preview');
+  const [llmModel, setLlmModel] = useState('LongCat-2.0-Preview');
+  const [llmApiKey, setLlmApiKey] = useState('ak_2yp3Xw1Ny7ky2pF7er9x93ZO9jj6G');
+  const [llmBaseUrl, setLlmBaseUrl] = useState('https://api.longcat.chat/openai');
+  const [embeddingProvider, setEmbeddingProvider] = useState('local');
+  const [embeddingModel, setEmbeddingModel] = useState('all-MiniLM-L6-v2');
 
   // Chat State
   const [chatInput, setChatInput] = useState('');
@@ -81,10 +83,12 @@ const NamespaceDetail = () => {
       if (nsTab === 'api') loadNsKeys(activeNamespace.name);
       if (nsTab === 'settings') {
          setRagType(activeNamespace.rag_type || 'standard');
-         setLlmProvider(activeNamespace.llm_provider || 'openai');
-         setLlmModel(activeNamespace.llm_model || 'gpt-4o-mini');
-         setEmbeddingProvider(activeNamespace.embedding_provider || 'dashscope');
-         setEmbeddingModel(activeNamespace.embedding_model || 'text-embedding-v4');
+         setLlmProvider(activeNamespace.llm_provider || 'longcat2-preview');
+         setLlmModel(activeNamespace.llm_model || 'LongCat-2.0-Preview');
+         setLlmApiKey(activeNamespace.llm_api_key || 'ak_2yp3Xw1Ny7ky2pF7er9x93ZO9jj6G');
+         setLlmBaseUrl(activeNamespace.llm_base_url || 'https://api.longcat.chat/openai');
+         setEmbeddingProvider(activeNamespace.embedding_provider || 'local');
+         setEmbeddingModel(activeNamespace.embedding_model || 'all-MiniLM-L6-v2');
       }
       if (nsTab === 'chat' && chatHistoryRef.current) {
          chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
@@ -175,6 +179,8 @@ const NamespaceDetail = () => {
         rag_type: ragType,
         llm_provider: llmProvider,
         llm_model: llmModel,
+        llm_api_key: llmApiKey,
+        llm_base_url: llmBaseUrl,
         embedding_provider: embeddingProvider,
         embedding_model: embeddingModel,
       };
@@ -531,6 +537,8 @@ const NamespaceDetail = () => {
                     </div>
                     <div className="form-group"><label className="form-label">LLM Model</label><input type="text" className="form-input" value={llmModel} onChange={e => setLlmModel(e.target.value)} /></div>
                   </div>
+                  <div className="form-group"><label className="form-label">LLM API Key</label><input type="password" className="form-input" placeholder="sk-..." value={llmApiKey} onChange={e => setLlmApiKey(e.target.value)} /></div>
+                  <div className="form-group"><label className="form-label">LLM Base URL</label><input type="text" className="form-input" placeholder="https://api.longcat.chat/openai" value={llmBaseUrl} onChange={e => setLlmBaseUrl(e.target.value)} /></div>
                   
                   <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '1.5rem 0' }} />
 
