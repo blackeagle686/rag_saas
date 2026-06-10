@@ -30,10 +30,21 @@ class CreateCheckoutSessionView(views.APIView):
         if not price_id:
             return Response({"error": "Invalid plan selected"}, status=status.HTTP_400_BAD_REQUEST)
             
+        # Dynamically resolve frontend URL from request headers
+        origin = request.META.get('HTTP_ORIGIN')
+        if not origin:
+            referer = request.META.get('HTTP_REFERER', '')
+            # Extract just the origin from referer (e.g. http://localhost:5002)
+            if referer:
+                parts = referer.split('/')
+                origin = f"{parts[0]}//{parts[2]}" if len(parts) >= 3 else frontend_url
+            else:
+                origin = frontend_url
+                
         try:
             if getattr(settings, 'DEBUG', False) and stripe.api_key == 'sk_test_mock':
                 # Return the mock checkout URL
-                return Response({'url': f"{frontend_url}/checkout-mock?plan={plan_id}"})
+                return Response({'url': f"{origin}/checkout-mock?plan={plan_id}"})
 
             # Pass the tenant ID securely to Stripe so it returns in the webhook
             session = stripe.checkout.Session.create(
@@ -43,8 +54,8 @@ class CreateCheckoutSessionView(views.APIView):
                     'quantity': 1,
                 }],
                 mode='subscription',
-                success_url=f"{frontend_url}/dashboard?success=true",
-                cancel_url=f"{frontend_url}/dashboard?canceled=true",
+                success_url=f"{origin}/dashboard?success=true",
+                cancel_url=f"{origin}/dashboard?canceled=true",
                 client_reference_id=request.user.id.hex, 
             )
             return Response({'url': session.url})
