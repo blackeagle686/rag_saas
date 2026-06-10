@@ -3,6 +3,7 @@ from django.conf import settings
 from rest_framework import views, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.db import transaction
 from ragaas.models import Tenant
 import uuid
 import logging
@@ -66,6 +67,7 @@ class CreateCheckoutSessionView(views.APIView):
 class StripeWebhookView(views.APIView):
     permission_classes = (AllowAny,)
     
+    @transaction.atomic
     def post(self, request):
         payload = request.body
         sig_header = request.META.get('HTTP_STRIPE_SIGNATURE', '')
@@ -128,6 +130,7 @@ class StripeWebhookView(views.APIView):
 class MockCheckoutSuccessView(views.APIView):
     permission_classes = (IsAuthenticated,)
     
+    @transaction.atomic
     def post(self, request):
         plan_id = request.data.get('plan_id')
         if getattr(settings, 'DEBUG', False) and stripe.api_key == 'sk_test_mock':
