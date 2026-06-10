@@ -1,6 +1,7 @@
 from rest_framework import status, views
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
 from ragaas.models import Namespace, Document
 from ragaas.services import NamespaceService, QueryService
 from ragaas.security.authentication import ApiKeyAuthentication, CanDeployApiPermission
@@ -12,6 +13,7 @@ class IngestView(views.APIView):
     permission_classes = (IsAuthenticated, CanDeployApiPermission)
     throttle_classes = (TierRateThrottle,)
     
+    @transaction.atomic
     def post(self, request):
         file_obj = request.FILES.get('file')
         namespace_name = request.data.get('namespace', 'default')
@@ -55,6 +57,7 @@ class DatabaseIngestView(views.APIView):
     permission_classes = (IsAuthenticated, CanDeployApiPermission)
     throttle_classes = (TierRateThrottle,)
     
+    @transaction.atomic
     def post(self, request):
         namespace_name = request.data.get('namespace', 'default')
         db_config = request.data.get('db_config')
