@@ -31,6 +31,14 @@ class CreateCheckoutSessionView(views.APIView):
             return Response({"error": "Invalid plan selected"}, status=status.HTTP_400_BAD_REQUEST)
             
         try:
+            if getattr(settings, 'DEBUG', False) and stripe.api_key == 'sk_test_mock':
+                # Mock upgrade in dev mode
+                tenant = request.user
+                tenant.plan = plan_id
+                tenant.can_deploy_api = plan_id != 'free'
+                tenant.save()
+                return Response({'url': f"{frontend_url}/dashboard?success=true"})
+
             # Pass the tenant ID securely to Stripe so it returns in the webhook
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
