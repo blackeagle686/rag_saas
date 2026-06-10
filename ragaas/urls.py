@@ -4,6 +4,7 @@ from .views import (
     RegisterView, LoginView, TenantSettingsView, NamespaceViewSet, NamespaceDocumentListView,
     ApiKeyViewSet, IngestView, QueryView
 )
+from .billing import CreateCheckoutSessionView, StripeWebhookView
 
 router = DefaultRouter(trailing_slash=False)
 router.register(r'namespaces', NamespaceViewSet, basename='namespace')
@@ -19,6 +20,9 @@ urlpatterns = [
     
     path('ingest', IngestView.as_view(), name='ingest'),
     path('query', QueryView.as_view(), name='query'),
+    
+    path('billing/checkout', CreateCheckoutSessionView.as_view(), name='billing-checkout'),
+    path('billing/webhook', StripeWebhookView.as_view(), name='billing-webhook'),
     
     path('', include(router.urls)),
 ]
