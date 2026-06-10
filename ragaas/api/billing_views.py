@@ -32,12 +32,8 @@ class CreateCheckoutSessionView(views.APIView):
             
         try:
             if getattr(settings, 'DEBUG', False) and stripe.api_key == 'sk_test_mock':
-                # Mock upgrade in dev mode
-                tenant = request.user
-                tenant.plan = plan_id
-                tenant.can_deploy_api = plan_id != 'free'
-                tenant.save()
-                return Response({'url': f"{frontend_url}/dashboard?success=true"})
+                # Return the mock checkout URL
+                return Response({'url': f"{frontend_url}/checkout-mock?plan={plan_id}"})
 
             # Pass the tenant ID securely to Stripe so it returns in the webhook
             session = stripe.checkout.Session.create(
@@ -117,3 +113,16 @@ class StripeWebhookView(views.APIView):
                 pass
 
         return Response({'status': 'success'}, status=status.HTTP_200_OK)
+
+class MockCheckoutSuccessView(views.APIView):
+    permission_classes = (IsAuthenticated,)
+    
+    def post(self, request):
+        plan_id = request.data.get('plan_id')
+        if getattr(settings, 'DEBUG', False) and stripe.api_key == 'sk_test_mock':
+            tenant = request.user
+            tenant.plan = plan_id
+            tenant.can_deploy_api = plan_id != 'free'
+            tenant.save()
+            return Response({'status': 'success'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Not in dev mode'}, status=status.HTTP_400_BAD_REQUEST)

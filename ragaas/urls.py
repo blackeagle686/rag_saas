@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from ragaas.api.auth_views import RegisterView, LoginView, LogoutView, TenantSettingsView
 from ragaas.api.namespace_views import NamespaceViewSet, NamespaceDocumentListView, ApiKeyViewSet
 from ragaas.api.query_views import IngestView, QueryView
-from ragaas.api.billing_views import CreateCheckoutSessionView, StripeWebhookView
+from ragaas.api.billing_views import CreateCheckoutSessionView, StripeWebhookView, MockCheckoutSuccessView
 
 router = DefaultRouter(trailing_slash=False)
 router.register(r'namespaces', NamespaceViewSet, basename='namespace')
@@ -24,6 +24,7 @@ urlpatterns = [
     
     path('billing/checkout', CreateCheckoutSessionView.as_view(), name='billing-checkout'),
     path('billing/webhook', StripeWebhookView.as_view(), name='billing-webhook'),
+    path('billing/mock-success', MockCheckoutSuccessView.as_view(), name='billing-mock-success'),
     
     path('', include(router.urls)),
 ]
