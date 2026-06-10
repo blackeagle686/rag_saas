@@ -17,29 +17,46 @@ class PhoenixEmbeddingAdapter:
     def embed_query(self, text):
         return self.service.embed_text(text, is_query=True)
 
-class QdrantVectorDBAdapter:
+class ChromaVectorDBAdapter:
     def __init__(self, collection_name: str, embedding_service: PhoenixEmbeddingAdapter, namespace_id: str = None):
         self.collection_name = collection_name
         self.embedding_service = embedding_service
         self.namespace_id = namespace_id
-        self.client = None
+        
     async def init(self):
-        from qdrant_client import QdrantClient
-        if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
-            self.client = QdrantClient(url=f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}", api_key=settings.QDRANT_API_KEY, check_compatibility=False)
-        else:
-            self.client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, check_compatibility=False)
+        pass
+        
     async def search(self, query: str, limit: int = 5, where: dict = None) -> list:
-        if not self.client: await self.init()
         vector = self.embedding_service.embed_query(query)
-        from qdrant_client.http import models as qdrant_models
-        query_filter = None
-        if self.namespace_id:
-            query_filter = qdrant_models.Filter(must=[qdrant_models.FieldCondition(key="namespace_id", match=qdrant_models.MatchValue(value=self.namespace_id))])
+        
         def _do_search():
-            return self.client.search(collection_name=self.collection_name, query_vector=vector, query_filter=query_filter, limit=limit)
+            import chromadb
+            chroma_client = chromadb.PersistentClient(path=os.path.join(settings.BASE_DIR, "chroma_db"))
+            try:
+                collection = chroma_client.get_collection(name=self.collection_name)
+            except Exception:
+                return {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]}
+                
+            where_filter = {"namespace_id": self.namespace_id} if self.namespace_id else None
+            
+            return collection.query(
+                query_embeddings=[vector],
+                n_results=limit,
+                where=where_filter
+            )
+            
         results = await asyncio.to_thread(_do_search)
-        return [{"content": p.payload.get("text", ""), "metadata": p.payload, "id": str(p.id), "distance": p.score} for p in results]
+        
+        output = []
+        if results.get('documents') and len(results['documents']) > 0 and results['documents'][0]:
+            for i in range(len(results['documents'][0])):
+                output.append({
+                    "content": results['documents'][0][i],
+                    "metadata": results['metadatas'][0][i] if results.get('metadatas') else {},
+                    "id": results['ids'][0][i],
+                    "distance": results['distances'][0][i] if results.get('distances') else 0.0
+                })
+        return output
 
 class QueryService:
     def query(self, tenant, namespace_name, query_text, top_k=3, custom_model=None):
@@ -50,7 +67,7 @@ class QueryService:
             api_key=ns.embedding_api_key or tenant.embedding_api_key, base_url=ns.embedding_base_url or tenant.embedding_base_url,
         )
         collection_name = f"tenant_{tenant.id.hex}"
-        vector_db = QdrantVectorDBAdapter(collection_name=collection_name, embedding_service=embeddings, namespace_id=str(ns.id))
+        vector_db = ChromaVectorDBAdapter(collection_name=collection_name, embedding_service=embeddings, namespace_id=str(ns.id))
         llm_model = custom_model or ns.llm_model
         
         if ns.llm_provider in ("openai", "longcat2-preview"):
