@@ -1,12 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (
-    RegisterView, LoginView, LogoutView, TenantSettingsView, NamespaceViewSet, NamespaceDocumentListView,
-    ApiKeyViewSet, IngestView, QueryView
-)
-from .billing import CreateCheckoutSessionView, StripeWebhookView
 
-router = DefaultRouter(trailing_slash=False)
+from ragaas.api.auth_views import RegisterView, LoginView, LogoutView, TenantSettingsView
+from ragaas.api.namespace_views import NamespaceViewSet, NamespaceDocumentListView, ApiKeyViewSet
+from ragaas.api.query_views import IngestView, QueryView
+from ragaas.api.billing_views import CreateCheckoutSessionView, StripeWebhookView
+
+router = DefaultRouter()
 router.register(r'namespaces', NamespaceViewSet, basename='namespace')
 router.register(r'keys', ApiKeyViewSet, basename='apikey')
 
@@ -17,7 +17,7 @@ urlpatterns = [
     
     path('tenant/settings', TenantSettingsView.as_view(), name='tenant-settings'),
     
-    path('namespaces/<str:name>/docs', NamespaceDocumentListView.as_view(), name='namespace-docs'),
+    path('namespaces/<str:name>/documents', NamespaceDocumentListView.as_view(), name='namespace-documents'),
     
     path('ingest', IngestView.as_view(), name='ingest'),
     path('query', QueryView.as_view(), name='query'),
