@@ -17,11 +17,12 @@ class PhoenixEmbeddingAdapter:
     def embed_query(self, text):
         return self.service.embed_text(text, is_query=True)
 
-class ChromaVectorDBAdapter:
-    def __init__(self, collection_name: str, embedding_service: PhoenixEmbeddingAdapter, namespace_id: str = None):
+class QdrantVectorDBAdapter:
+    def __init__(self, collection_name: str, embedding_service: PhoenixEmbeddingAdapter, namespace_id: str = None, tenant_id: str = None):
         self.collection_name = collection_name
         self.embedding_service = embedding_service
         self.namespace_id = namespace_id
+        self.tenant_id = tenant_id
         
     async def init(self):
         pass
@@ -30,32 +31,41 @@ class ChromaVectorDBAdapter:
         vector = self.embedding_service.embed_query(query)
         
         def _do_search():
-            import chromadb
-            chroma_client = chromadb.PersistentClient(path=os.path.join(settings.BASE_DIR, "chroma_db"))
-            try:
-                collection = chroma_client.get_collection(name=self.collection_name)
-            except Exception:
-                return {"documents": [[]], "metadatas": [[]], "ids": [[]], "distances": [[]]}
+            from qdrant_client import QdrantClient
+            from qdrant_client.http import models as qdrant_models
+            
+            qdrant_url = getattr(settings, 'QDRANT_URL', 'http://localhost:6333')
+            client = QdrantClient(url=qdrant_url)
+            
+            must_conditions = []
+            if self.tenant_id:
+                must_conditions.append(qdrant_models.FieldCondition(key="tenant_id", match=qdrant_models.MatchValue(value=str(self.tenant_id))))
+            if self.namespace_id:
+                must_conditions.append(qdrant_models.FieldCondition(key="namespace_id", match=qdrant_models.MatchValue(value=str(self.namespace_id))))
                 
-            where_filter = {"namespace_id": self.namespace_id} if self.namespace_id else None
+            query_filter = qdrant_models.Filter(must=must_conditions) if must_conditions else None
             
-            return collection.query(
-                query_embeddings=[vector],
-                n_results=limit,
-                where=where_filter
-            )
-            
+            try:
+                results = client.search(
+                    collection_name=self.collection_name,
+                    query_vector=vector,
+                    query_filter=query_filter,
+                    limit=limit
+                )
+                return results
+            except Exception:
+                return []
+                
         results = await asyncio.to_thread(_do_search)
         
         output = []
-        if results.get('documents') and len(results['documents']) > 0 and results['documents'][0]:
-            for i in range(len(results['documents'][0])):
-                output.append({
-                    "content": results['documents'][0][i],
-                    "metadata": results['metadatas'][0][i] if results.get('metadatas') else {},
-                    "id": results['ids'][0][i],
-                    "distance": results['distances'][0][i] if results.get('distances') else 0.0
-                })
+        for res in results:
+            output.append({
+                "content": res.payload.get("text", ""),
+                "metadata": res.payload,
+                "id": str(res.id),
+                "distance": res.score
+            })
         return output
 
 class QueryService:
@@ -66,9 +76,30 @@ class QueryService:
             provider=ns.embedding_provider, model=ns.embedding_model,
             api_key=ns.embedding_api_key or tenant.embedding_api_key, base_url=ns.embedding_base_url or tenant.embedding_base_url,
         )
-        collection_name = f"tenant_{tenant.id.hex}"
-        vector_db = ChromaVectorDBAdapter(collection_name=collection_name, embedding_service=embeddings, namespace_id=str(ns.id))
+        collection_name = "ragaas_vectors"
+        vector_db = QdrantVectorDBAdapter(collection_name=collection_name, embedding_service=embeddings, namespace_id=str(ns.id), tenant_id=str(tenant.id))
         llm_model = custom_model or ns.llm_model
+        
+        # ---------------------------------------------------------
+        # SEMANTIC CACHING - Avoid expensive LLM calls for identical queries
+        # ---------------------------------------------------------
+        import hashlib
+        from django.core.cache import cache
+        query_hash = hashlib.sha256(query_text.encode('utf-8')).hexdigest()
+        cache_key = f"semantic_cache:{tenant.id}:{ns.id}:{query_hash}"
+        cached_result = cache.get(cache_key)
+        
+        if cached_result:
+            from ragaas.workers.tasks import log_query_metrics_task
+            log_query_metrics_task.delay(
+                tenant_id=str(tenant.id), query_text=query_text, answer=cached_result["answer"],
+                sources=cached_result["context_chunks"], query_ms=int((time.time() - start_time) * 1000), llm_model="semantic-cache"
+            )
+            return {
+                "answer": cached_result["answer"],
+                "context_chunks": cached_result["context_chunks"],
+                "usage": {"tokens": 0, "latency_ms": int((time.time() - start_time) * 1000), "model": "semantic-cache", "cached": True}
+            }
         
         if ns.llm_provider in ("openai", "longcat2-preview"):
             resolved_api_key = ns.llm_api_key or tenant.llm_api_key or os.environ.get("OPENAI_API_KEY")
@@ -125,8 +156,15 @@ class QueryService:
         except Exception as e:
             print(f"Error dispatching metrics task: {e}")
         
+        formatted_sources = [{"text": str(s.get("text", "")), "score": s.get("score", 0.0), "metadata": s.get("metadata", {})} for s in sources] if isinstance(sources, list) else []
+        
+        cache.set(cache_key, {
+            "answer": answer,
+            "context_chunks": formatted_sources
+        }, timeout=86400) # Cache for 24 hours
+        
         return {
             "answer": answer,
-            "context_chunks": [{"text": str(s.get("text", "")), "score": s.get("score", 0.0), "metadata": s.get("metadata", {})} for s in sources] if isinstance(sources, list) else [],
-            "usage": {"tokens": tokens_used, "latency_ms": query_ms, "model": llm_model}
+            "context_chunks": formatted_sources,
+            "usage": {"tokens": tokens_used, "latency_ms": query_ms, "model": llm_model, "cached": False}
         }
