@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from ragaas.api.auth_views import RegisterView, LoginView, LogoutView, TenantSettingsView
 from ragaas.api.namespace_views import NamespaceViewSet, NamespaceDocumentListView, ApiKeyViewSet
-from ragaas.api.query_views import IngestView, QueryView
+from ragaas.api.query_views import IngestView, QueryView, DatabaseIngestView
 from ragaas.api.billing_views import CreateCheckoutSessionView, StripeWebhookView, MockCheckoutSuccessView
 
 router = DefaultRouter(trailing_slash=False)
@@ -20,6 +20,7 @@ urlpatterns = [
     path('namespaces/<str:name>/documents', NamespaceDocumentListView.as_view(), name='namespace-documents'),
     
     path('ingest', IngestView.as_view(), name='ingest'),
+    path('ingest/database', DatabaseIngestView.as_view(), name='ingest-database'),
     path('query', QueryView.as_view(), name='query'),
     
     path('billing/checkout', CreateCheckoutSessionView.as_view(), name='billing-checkout'),

@@ -50,6 +50,49 @@ class IngestView(views.APIView):
             "message": "Document queued for processing"
         }, status=status.HTTP_202_ACCEPTED)
 
+class DatabaseIngestView(views.APIView):
+    authentication_classes = [ApiKeyAuthentication, *views.APIView.authentication_classes]
+    permission_classes = (IsAuthenticated, CanDeployApiPermission)
+    throttle_classes = (TierRateThrottle,)
+    
+    def post(self, request):
+        namespace_name = request.data.get('namespace', 'default')
+        db_config = request.data.get('db_config')
+        
+        if not db_config:
+            return Response({"detail": "Database config is required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        ns, _ = NamespaceService.create_namespace(request.user, {'name': namespace_name})
+        
+        doc = Document.objects.create(
+            namespace=ns,
+            filename=f"Database Sync ({db_config.get('type')})",
+            file_type='db',
+            status='pending'
+        )
+        
+        import os
+        from django.conf import settings
+        import json
+        storage_path = getattr(settings, 'LOCAL_STORAGE_PATH', './storage')
+        dest_dir = os.path.join(storage_path, request.user.id.hex, str(ns.id))
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, f"{doc.id}.db_config.json")
+        
+        with open(dest_path, 'w') as f:
+            json.dump(db_config, f)
+            
+        doc.s3_key = dest_path
+        doc.save()
+        
+        process_document.delay(str(doc.id))
+        
+        return Response({
+            "document_id": doc.id,
+            "status": doc.status,
+            "message": "Database sync queued for processing"
+        }, status=status.HTTP_202_ACCEPTED)
+
 class QueryView(views.APIView):
     authentication_classes = [ApiKeyAuthentication, *views.APIView.authentication_classes]
     permission_classes = (IsAuthenticated, CanDeployApiPermission)
