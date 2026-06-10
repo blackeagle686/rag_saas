@@ -8,6 +8,7 @@ const NamespacesTab = () => {
   const [namespaces, setNamespaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState(null);
+  const [plan, setPlan] = useState('free');
   
   // Detail View State
   const [activeNamespace, setActiveNamespace] = useState(null);
@@ -59,7 +60,15 @@ const NamespacesTab = () => {
     if (!activeNamespace) {
       loadNamespaces();
     }
+    fetchPlan();
   }, [activeNamespace]);
+
+  const fetchPlan = async () => {
+    try {
+      const data = await api.getSettings();
+      if (data) setPlan(data.plan || 'free');
+    } catch (err) {}
+  };
 
   useEffect(() => {
     if (activeNamespace) {
@@ -499,7 +508,14 @@ const NamespacesTab = () => {
             </div>
           )}
 
-          {nsTab === 'settings' && (
+          {/* HELPER FUNCTION */}
+          {(() => {
+            const isAllowed = (requiredPlan) => {
+              const tiers = { free: 0, start: 1, mid: 2, prime: 3, enterprise: 4 };
+              return tiers[plan] >= tiers[requiredPlan];
+            };
+
+            return nsTab === 'settings' && (
             <div className="animate-fade-in" style={{ maxWidth: '600px' }}>
               <h3 className="section-title">Namespace Settings</h3>
               <form onSubmit={handleSaveSettings}>
@@ -508,20 +524,28 @@ const NamespacesTab = () => {
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Changing the architecture will instantly upgrade how queries are processed.</p>
                   <select className="form-input" value={activeNamespace.rag_type || 'standard'} onChange={e => setActiveNamespace(prev => ({ ...prev, rag_type: e.target.value }))}>
                     <option value="standard">Standard RAG (Basic)</option>
-                    <option value="cag">Cache-Augmented (CAG) - Faster</option>
-                    <option value="agentic">Agentic RAG - Self-Correcting</option>
-                    <option value="multimodal">MultiModal RAG</option>
+                    <option value="cag" disabled={!isAllowed('mid')}>Cache-Augmented (CAG) - Faster {!isAllowed('mid') && '🔒 (Mid)'}</option>
+                    <option value="agentic" disabled={!isAllowed('prime')}>Agentic RAG - Self-Correcting {!isAllowed('prime') && '🔒 (Prime)'}</option>
+                    <option value="multimodal" disabled={!isAllowed('prime')}>MultiModal RAG {!isAllowed('prime') && '🔒 (Prime)'}</option>
                   </select>
                 </div>
 
                 <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '1.5rem 0' }} />
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div className="form-group"><label className="form-label">LLM Provider</label><select className="form-input" value={llmProvider} onChange={e => setLlmProvider(e.target.value)}><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></div>
+                  <div className="form-group">
+                    <label className="form-label">LLM Provider</label>
+                    <select className="form-input" value={llmProvider} onChange={e => setLlmProvider(e.target.value)}>
+                      <option value="longcat2-preview">LongCat 2 Preview (Free)</option>
+                      <option value="openai" disabled={!isAllowed('start')}>OpenAI {!isAllowed('start') && '🔒 (Start)'}</option>
+                      <option value="anthropic" disabled={!isAllowed('mid')}>Anthropic {!isAllowed('mid') && '🔒 (Mid)'}</option>
+                      <option value="gemini" disabled={!isAllowed('mid')}>Google Gemini {!isAllowed('mid') && '🔒 (Mid)'}</option>
+                    </select>
+                  </div>
                   <div className="form-group"><label className="form-label">LLM Model</label><input type="text" className="form-input" value={llmModel} onChange={e => setLlmModel(e.target.value)} /></div>
                 </div>
-                <div className="form-group"><label className="form-label">LLM API Key</label><input type="password" className="form-input" placeholder="sk-..." value={llmApiKey} onChange={e => setLlmApiKey(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">LLM Base URL</label><input type="text" className="form-input" placeholder="https://api.openai.com/v1" value={llmBaseUrl} onChange={e => setLlmBaseUrl(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">LLM API Key</label><input type="password" className="form-input" placeholder="sk-..." value={llmApiKey} onChange={e => setLlmApiKey(e.target.value)} disabled={llmProvider === 'longcat2-preview'} /></div>
+                <div className="form-group"><label className="form-label">LLM Base URL</label><input type="text" className="form-input" placeholder="https://api.openai.com/v1" value={llmBaseUrl} onChange={e => setLlmBaseUrl(e.target.value)} disabled={llmProvider === 'longcat2-preview'} /></div>
                 
                 <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '1.5rem 0' }} />
 
@@ -532,28 +556,29 @@ const NamespacesTab = () => {
                       const newProv = e.target.value;
                       setEmbeddingProvider(newProv);
                       if (newProv === 'local') setEmbeddingModel('all-MiniLM-L6-v2');
+                      else if (newProv === 'dashscope') setEmbeddingModel('text-embedding-v4');
                       else if (newProv === 'openai') setEmbeddingModel('text-embedding-3-large');
                       else if (newProv === 'gemini') setEmbeddingModel('text-embedding-004');
                       else if (newProv === 'cohere') setEmbeddingModel('embed-english-v3.0');
                       else if (newProv === 'voyage') setEmbeddingModel('voyage-3-large');
                     }}>
-                      <option value="local">Local (all-MiniLM-L6-v2)</option>
-                      <option value="openai">OpenAI</option>
-                      <option value="gemini">Google Gemini</option>
-                      <option value="cohere">Cohere</option>
-                      <option value="voyage">Voyage AI</option>
-                      <option value="dashscope">DashScope</option>
+                      <option value="local">Local (Free)</option>
+                      <option value="dashscope">DashScope (Free)</option>
+                      <option value="openai" disabled={!isAllowed('mid')}>OpenAI {!isAllowed('mid') && '🔒 (Mid)'}</option>
+                      <option value="cohere" disabled={!isAllowed('mid')}>Cohere {!isAllowed('mid') && '🔒 (Mid)'}</option>
+                      <option value="voyage" disabled={!isAllowed('prime')}>Voyage AI {!isAllowed('prime') && '🔒 (Prime)'}</option>
                     </select>
                   </div>
                   <div className="form-group"><label className="form-label">Embedding Model</label><input type="text" className="form-input" value={embeddingModel} onChange={e => setEmbeddingModel(e.target.value)} /></div>
                 </div>
-                <div className="form-group"><label className="form-label">Embedding API Key</label><input type="password" className="form-input" placeholder="sk-..." value={embeddingApiKey} onChange={e => setEmbeddingApiKey(e.target.value)} /></div>
-                <div className="form-group"><label className="form-label">Embedding Base URL</label><input type="text" className="form-input" placeholder="https://dashscope-intl.aliyuncs.com/compatible-mode/v1" value={embeddingBaseUrl} onChange={e => setEmbeddingBaseUrl(e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">Embedding API Key</label><input type="password" className="form-input" placeholder="sk-..." value={embeddingApiKey} onChange={e => setEmbeddingApiKey(e.target.value)} disabled={embeddingProvider === 'local'} /></div>
+                <div className="form-group"><label className="form-label">Embedding Base URL</label><input type="text" className="form-input" placeholder="https://dashscope-intl.aliyuncs.com/compatible-mode/v1" value={embeddingBaseUrl} onChange={e => setEmbeddingBaseUrl(e.target.value)} disabled={embeddingProvider === 'local'} /></div>
                 
                 <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>Save Settings</button>
               </form>
             </div>
-          )}
+          )
+          })()}
 
         </div>
 
@@ -679,28 +704,42 @@ const NamespacesTab = () => {
               <div className="form-group" style={{ marginTop: '1.5rem' }}>
                 <label className="form-label">RAG System Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
-                  {[
-                    { id: 'standard', name: 'Standard RAG', desc: 'Best for general queries and simple retrieval.' },
-                    { id: 'cag', name: 'Cache-Augmented (CAG)', desc: 'Best for repetitive queries. Ultra fast.' },
-                    { id: 'agentic', name: 'Agentic RAG', desc: 'Best for complex reasoning and self-correction.' },
-                    { id: 'multimodal', name: 'MultiModal RAG', desc: 'Best for images, audio, and mixed media.' },
-                  ].map(type => (
-                    <div 
-                      key={type.id} 
-                      onClick={() => setRagType(type.id)}
-                      style={{
-                        padding: '1rem',
-                        borderRadius: 'var(--radius-md)',
-                        border: ragType === type.id ? '2px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.1)',
-                        backgroundColor: ragType === type.id ? 'rgba(var(--primary-rgb), 0.1)' : 'var(--bg-card)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: ragType === type.id ? 'var(--primary-color)' : 'inherit' }}>{type.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{type.desc}</div>
-                    </div>
-                  ))}
+                    (() => {
+                      const isAllowed = (requiredPlan) => {
+                        const tiers = { free: 0, start: 1, mid: 2, prime: 3, enterprise: 4 };
+                        return tiers[plan] >= tiers[requiredPlan];
+                      };
+                      return [
+                        { id: 'standard', name: 'Standard RAG', desc: 'Best for general queries and simple retrieval.', req: 'free' },
+                        { id: 'cag', name: 'Cache-Augmented (CAG)', desc: 'Best for repetitive queries. Ultra fast.', req: 'mid' },
+                        { id: 'agentic', name: 'Agentic RAG', desc: 'Best for complex reasoning and self-correction.', req: 'prime' },
+                        { id: 'multimodal', name: 'MultiModal RAG', desc: 'Best for images, audio, and mixed media.', req: 'prime' },
+                      ].map(type => {
+                        const allowed = isAllowed(type.req);
+                        return (
+                          <div 
+                            key={type.id} 
+                            onClick={() => { if (allowed) setRagType(type.id); }}
+                            style={{
+                              padding: '1rem',
+                              borderRadius: 'var(--radius-md)',
+                              border: ragType === type.id ? '2px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.1)',
+                              backgroundColor: ragType === type.id ? 'rgba(var(--primary-rgb), 0.1)' : 'var(--bg-card)',
+                              cursor: allowed ? 'pointer' : 'not-allowed',
+                              opacity: allowed ? 1 : 0.5,
+                              transition: 'all 0.2s ease',
+                              position: 'relative'
+                            }}
+                          >
+                            {!allowed && <div style={{position: 'absolute', top: 10, right: 10}}>🔒</div>}
+                            <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: ragType === type.id ? 'var(--primary-color)' : 'inherit' }}>{type.name}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{type.desc}</div>
+                            {!allowed && <div style={{ fontSize: '0.75rem', color: 'var(--color-warning)', marginTop: '0.5rem' }}>Upgrade to {type.req.charAt(0).toUpperCase() + type.req.slice(1)}</div>}
+                          </div>
+                        );
+                      });
+                    })()
+                  }
                 </div>
               </div>
 
