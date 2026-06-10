@@ -53,7 +53,7 @@ class QueryService:
         vector_db = QdrantVectorDBAdapter(collection_name=collection_name, embedding_service=embeddings, namespace_id=str(ns.id))
         llm_model = custom_model or ns.llm_model
         
-        if ns.llm_provider == "openai":
+        if ns.llm_provider in ("openai", "longcat2-preview"):
             resolved_api_key = ns.llm_api_key or tenant.llm_api_key or os.environ.get("OPENAI_API_KEY")
             resolved_base_url = ns.llm_base_url or tenant.llm_base_url or os.environ.get("OPENAI_API_BASE")
             # CRITICAL SECURITY FIX: Do not mutate os.environ globally as it causes cross-tenant race conditions.
