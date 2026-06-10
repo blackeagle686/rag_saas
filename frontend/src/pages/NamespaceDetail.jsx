@@ -20,6 +20,17 @@ const NamespaceDetail = () => {
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [newUrl, setNewUrl] = useState('');
   
+  const [showDbModal, setShowDbModal] = useState(false);
+  const [dbConfig, setDbConfig] = useState({
+    type: 'postgresql',
+    host: 'localhost',
+    port: '5432',
+    user: 'postgres',
+    password: '',
+    database: '',
+    query: 'SELECT text_content FROM my_table'
+  });
+  
   // Namespace Dashboard State
   const [nsTab, setNsTab] = useState('overview');
   
@@ -251,6 +262,21 @@ const NamespaceDetail = () => {
     setTimeout(() => setUploadStatus(null), 5000);
   };
 
+  const handleDbIngest = async (e) => {
+    e.preventDefault();
+    if (!activeNamespace) return;
+    setShowDbModal(false);
+    setUploadStatus({ type: 'info', message: `Connecting to database and ingesting records...` });
+    try {
+      await api.uploadDocumentFromDb(activeNamespace.name, dbConfig);
+      setUploadStatus({ type: 'success', message: `Database successfully ingested!` });
+      loadDocuments(activeNamespace.name);
+    } catch (error) {
+      setUploadStatus({ type: 'error', message: `Database ingest failed: ${error.message}` });
+    }
+    setTimeout(() => setUploadStatus(null), 5000);
+  };
+
   if (loading) {
     return <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><div className="spinner"></div></div>;
   }
@@ -419,7 +445,10 @@ const NamespaceDetail = () => {
                     <div className="uploader-desc">or click to browse local files</div>
                     <input type="file" ref={fileInputRef} className="file-input" accept=".pdf,.docx,.txt,.md,.html" onChange={onFileChange} />
                   </div>
-                  <button className="btn btn-secondary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setShowUrlModal(true)}>🌐 Import via URL</button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                    <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setShowUrlModal(true)}>🌐 Import via URL</button>
+                    <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setShowDbModal(true)}>🗄️ Connect Database</button>
+                  </div>
                 </div>
               </div>
             )}
@@ -581,6 +610,43 @@ const NamespaceDetail = () => {
                 <form onSubmit={handleUrlIngest}>
                   <div className="form-group"><label className="form-label">File HTTP URL</label><input type="url" className="form-input" placeholder="https://example.com/file.pdf" value={newUrl} onChange={e => setNewUrl(e.target.value)} required /></div>
                   <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowUrlModal(false)}>Cancel</button><button type="submit" className="btn btn-primary">Start Ingestion</button></div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Database Modal */}
+          {showDbModal && (
+            <div className="modal-overlay active" onClick={(e) => { if (e.target.className.includes('modal-overlay')) setShowDbModal(false) }}>
+              <div className="modal-content animate-fade-in" style={{ maxWidth: '600px' }}>
+                <header className="modal-header"><h2 className="modal-title">Import from Database</h2><button className="modal-close" onClick={() => setShowDbModal(false)}>&times;</button></header>
+                <form onSubmit={handleDbIngest}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Database Type</label>
+                      <select className="form-input" value={dbConfig.type} onChange={e => setDbConfig({...dbConfig, type: e.target.value})}>
+                        <option value="postgresql">PostgreSQL</option>
+                        <option value="mysql">MySQL</option>
+                        <option value="sqlite">SQLite</option>
+                      </select>
+                    </div>
+                    <div className="form-group"><label className="form-label">Host</label><input type="text" className="form-input" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} required={dbConfig.type !== 'sqlite'} /></div>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group"><label className="form-label">Port</label><input type="text" className="form-input" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} /></div>
+                    <div className="form-group"><label className="form-label">User</label><input type="text" className="form-input" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} required={dbConfig.type !== 'sqlite'} /></div>
+                    <div className="form-group"><label className="form-label">Password</label><input type="password" className="form-input" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} /></div>
+                  </div>
+                  
+                  <div className="form-group"><label className="form-label">Database Name (or SQLite Path)</label><input type="text" className="form-input" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} required /></div>
+                  
+                  <div className="form-group">
+                    <label className="form-label">SQL Query (Return at least one column with text)</label>
+                    <textarea className="form-input" rows="3" value={dbConfig.query} onChange={e => setDbConfig({...dbConfig, query: e.target.value})} required style={{ fontFamily: 'monospace' }}></textarea>
+                  </div>
+
+                  <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowDbModal(false)}>Cancel</button><button type="submit" className="btn btn-primary">Start DB Sync</button></div>
                 </form>
               </div>
             </div>
