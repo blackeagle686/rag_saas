@@ -19,7 +19,7 @@ const Header = ({ activeTab, setActiveTab }) => {
   const navItems = [
     { id: 'overview', icon: <BarChartFill size={18} />, label: 'Overview' },
     { id: 'namespaces', icon: <FolderFill size={18} />, label: 'Namespaces' },
-    { id: 'settings', icon: <KeyFill size={18} />, label: 'Settings' },
+    // { id: 'settings', icon: <KeyFill size={18} />, label: 'Settings' },
     { id: 'billing', icon: <span style={{ fontSize: '18px' }}>💳</span>, label: 'Billing & Plans' }
   ];
 
