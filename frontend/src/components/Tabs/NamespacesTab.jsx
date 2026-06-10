@@ -201,12 +201,8 @@ const NamespacesTab = () => {
       const updatedData = {
         llm_provider: llmProvider,
         llm_model: llmModel,
-        llm_api_key: llmApiKey || null,
-        llm_base_url: llmBaseUrl || null,
         embedding_provider: embeddingProvider,
         embedding_model: embeddingModel,
-        embedding_api_key: embeddingApiKey || null,
-        embedding_base_url: embeddingBaseUrl || null,
       };
       
       await api.updateNamespace(activeNamespace.name, updatedData);
@@ -544,8 +540,6 @@ const NamespacesTab = () => {
                   </div>
                   <div className="form-group"><label className="form-label">LLM Model</label><input type="text" className="form-input" value={llmModel} onChange={e => setLlmModel(e.target.value)} /></div>
                 </div>
-                <div className="form-group"><label className="form-label">LLM API Key</label><input type="password" className="form-input" placeholder="sk-..." value={llmApiKey} onChange={e => setLlmApiKey(e.target.value)} disabled={llmProvider === 'longcat2-preview'} /></div>
-                <div className="form-group"><label className="form-label">LLM Base URL</label><input type="text" className="form-input" placeholder="https://api.openai.com/v1" value={llmBaseUrl} onChange={e => setLlmBaseUrl(e.target.value)} disabled={llmProvider === 'longcat2-preview'} /></div>
                 
                 <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '1.5rem 0' }} />
 
@@ -571,8 +565,6 @@ const NamespacesTab = () => {
                   </div>
                   <div className="form-group"><label className="form-label">Embedding Model</label><input type="text" className="form-input" value={embeddingModel} onChange={e => setEmbeddingModel(e.target.value)} /></div>
                 </div>
-                <div className="form-group"><label className="form-label">Embedding API Key</label><input type="password" className="form-input" placeholder="sk-..." value={embeddingApiKey} onChange={e => setEmbeddingApiKey(e.target.value)} disabled={embeddingProvider === 'local'} /></div>
-                <div className="form-group"><label className="form-label">Embedding Base URL</label><input type="text" className="form-input" placeholder="https://dashscope-intl.aliyuncs.com/compatible-mode/v1" value={embeddingBaseUrl} onChange={e => setEmbeddingBaseUrl(e.target.value)} disabled={embeddingProvider === 'local'} /></div>
                 
                 <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem' }}>Save Settings</button>
               </form>
