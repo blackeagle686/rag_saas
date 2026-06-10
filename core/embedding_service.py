@@ -88,21 +88,26 @@ class EmbeddingService:
     def _embed_local(self, texts: list[str]) -> list[list[float]]:
         from sentence_transformers import SentenceTransformer
         import torch
+        import threading
         
         # Cache models globally by model name to support different namespaces using different local models
         if not hasattr(EmbeddingService, "_local_models"):
             EmbeddingService._local_models = {}
+            EmbeddingService._model_lock = threading.Lock()
             
         if self.model not in EmbeddingService._local_models:
-            logger.info(f"Loading local embedding model {self.model} on CPU (Optimized)...")
+            with EmbeddingService._model_lock:
+                # Double-checked locking
+                if self.model not in EmbeddingService._local_models:
+                    logger.info(f"Loading local embedding model {self.model} on CPU (Optimized)...")
+                    
+                    # Ensure optimal CPU thread configuration
+                    torch.set_num_threads(max(1, torch.get_num_threads()))
             
-            # Ensure optimal CPU thread configuration
-            torch.set_num_threads(max(1, torch.get_num_threads()))
-            
-            # Load model onto CPU and forcefully set to evaluation mode (disables dropout, etc.)
-            model = SentenceTransformer(self.model, device='cpu')
-            model.eval()
-            EmbeddingService._local_models[self.model] = model
+                    # Load model onto CPU and forcefully set to evaluation mode (disables dropout, etc.)
+                    model = SentenceTransformer(self.model, device='cpu')
+                    model.eval()
+                    EmbeddingService._local_models[self.model] = model
             
         # Optimization:
         # - normalize_embeddings=True: Critically improves accuracy for Cosine Similarity/Dot Product DB searches
