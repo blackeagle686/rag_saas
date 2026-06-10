@@ -166,5 +166,5 @@ class QueryService:
         return {
             "answer": answer,
             "context_chunks": formatted_sources,
-            "usage": {"tokens": tokens_used, "latency_ms": query_ms, "model": llm_model, "cached": False}
+            "usage": {"tokens": 0, "latency_ms": query_ms, "model": llm_model, "cached": False}
         }
