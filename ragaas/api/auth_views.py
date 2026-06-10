@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from django.conf import settings
 from ragaas.api.serializers.core import RegisterSerializer, TenantSettingsSerializer, TenantSettingsUpdateSerializer
 from ragaas.models import Tenant
 
@@ -17,7 +18,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         refresh = RefreshToken.for_user(user)
         response = Response({"status": "success", "user": serializer.data}, status=status.HTTP_201_CREATED)
-        response.set_cookie(key='access_token', value=str(refresh.access_token), httponly=True, secure=False, samesite='Lax', max_age=7*24*60*60)
+        response.set_cookie(key='access_token', value=str(refresh.access_token), httponly=True, secure=not settings.DEBUG, samesite='Lax', max_age=7*24*60*60)
         return response
 
 class LoginView(views.APIView):
@@ -29,7 +30,7 @@ class LoginView(views.APIView):
         if user:
             refresh = RefreshToken.for_user(user)
             response = Response({"status": "success"})
-            response.set_cookie(key='access_token', value=str(refresh.access_token), httponly=True, secure=False, samesite='Lax', max_age=7*24*60*60)
+            response.set_cookie(key='access_token', value=str(refresh.access_token), httponly=True, secure=not settings.DEBUG, samesite='Lax', max_age=7*24*60*60)
             return response
         return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
