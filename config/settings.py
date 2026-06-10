@@ -156,3 +156,11 @@ EMBEDDING_DIMENSIONS = env.int('EMBEDDING_DIMENSIONS', default=1536)
 MOCK_LLM = env.bool('MOCK_LLM', default=False)
 STORAGE_BACKEND = env('STORAGE_BACKEND', default='local')
 LOCAL_STORAGE_PATH = env('LOCAL_STORAGE_PATH', default='./storage')
+
+# == Stripe Billing ==
+STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='sk_test_mock')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='whsec_mock')
+STRIPE_PRICE_START = env('STRIPE_PRICE_START', default='price_mock_start')
+STRIPE_PRICE_MID = env('STRIPE_PRICE_MID', default='price_mock_mid')
+STRIPE_PRICE_PRIME = env('STRIPE_PRICE_PRIME', default='price_mock_prime')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
