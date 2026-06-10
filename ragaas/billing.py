@@ -9,8 +9,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Retrieve keys from settings (which pulls from .env)
 stripe.api_key = getattr(settings, 'STRIPE_SECRET_KEY', 'sk_test_mock')
 webhook_secret = getattr(settings, 'STRIPE_WEBHOOK_SECRET', 'whsec_mock')
+frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
 
 class CreateCheckoutSessionView(views.APIView):
     permission_classes = (IsAuthenticated,)
@@ -37,8 +39,8 @@ class CreateCheckoutSessionView(views.APIView):
                     'quantity': 1,
                 }],
                 mode='subscription',
-                success_url=request.build_absolute_uri('/dashboard?success=true'),
-                cancel_url=request.build_absolute_uri('/dashboard?canceled=true'),
+                success_url=f"{frontend_url}/dashboard?success=true",
+                cancel_url=f"{frontend_url}/dashboard?canceled=true",
                 client_reference_id=request.user.id.hex, 
             )
             return Response({'url': session.url})
