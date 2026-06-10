@@ -8,7 +8,8 @@ class RAGaaSApiClient {
   }
 
   setToken(token) {
-    localStorage.setItem(this.tokenKey, token);
+    // We only set a flag now; the actual token is handled via HttpOnly cookies by the browser.
+    localStorage.setItem(this.tokenKey, 'true');
   }
 
   getToken() {
@@ -20,7 +21,7 @@ class RAGaaSApiClient {
   }
 
   isAuthenticated() {
-    return !!this.getToken();
+    return this.getToken() === 'true';
   }
 
   /**
@@ -34,11 +35,6 @@ class RAGaaSApiClient {
       ...(options.headers || {}),
     };
 
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    // Set JSON content-type if we aren't sending FormData
     if (!(options.body instanceof FormData) && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
@@ -46,6 +42,7 @@ class RAGaaSApiClient {
     const config = {
       ...options,
       headers,
+      credentials: 'include', // CRITICAL: This allows the browser to send the HttpOnly cookie
     };
 
     try {
@@ -73,8 +70,8 @@ class RAGaaSApiClient {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    if (data.access_token) {
-      this.setToken(data.access_token);
+    if (data.status === 'success') {
+      this.setToken('true');
     }
     return data;
   }
@@ -84,10 +81,15 @@ class RAGaaSApiClient {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
     });
-    if (data.access_token) {
-      this.setToken(data.access_token);
+    if (data.status === 'success') {
+      this.setToken('true');
     }
     return data;
+  }
+
+  async logout() {
+    await this.request('/v1/auth/logout', { method: 'POST' });
+    this.clearToken();
   }
 
   // == Health Checks ==
