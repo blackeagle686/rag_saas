@@ -59,6 +59,11 @@ class Tenant(AbstractBaseUser, PermissionsMixin):
     llm_api_key = models.CharField(max_length=255, null=True, blank=True)
     llm_base_url = models.CharField(max_length=255, null=True, blank=True)
     
+    embedding_provider = models.CharField(max_length=50, default='local')
+    embedding_model = models.CharField(max_length=100, default='all-MiniLM-L6-v2')
+    embedding_api_key = models.CharField(max_length=255, null=True, blank=True)
+    embedding_base_url = models.CharField(max_length=255, null=True, blank=True)
+    
     objects = TenantManager()
     
     USERNAME_FIELD = 'email'
