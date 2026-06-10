@@ -204,7 +204,7 @@ run_services() {
     echo -e "${YELLOW}⚠️  Celery worker is already running (PID: $(cat "$PID_DIR/celery.pid")).${RESET}"
   else
     echo -e "${CYAN}[*] Starting Celery worker...${RESET}"
-    $VENV_CELERY -A config worker --loglevel=info > "$LOG_DIR/celery.log" 2>&1 &
+    $VENV_CELERY -A config worker -Q celery,realtime,bulk_ingestion --loglevel=info > "$LOG_DIR/celery.log" 2>&1 &
     echo $! > "$PID_DIR/celery.pid"
     echo -e "${GREEN}   ✓ Celery worker running in background.${RESET}"
   fi
