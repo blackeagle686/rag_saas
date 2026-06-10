@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../api/client';
 import Alert from '../Alert';
 
@@ -18,10 +19,11 @@ const SettingsTab = () => {
   const [embedBaseUrl, setEmbedBaseUrl] = useState('');
 
   const [alert, setAlert] = useState(null);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [searchParams]);
 
   const loadSettings = async () => {
     try {
