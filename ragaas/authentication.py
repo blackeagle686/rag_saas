@@ -1,5 +1,18 @@
-from rest_framework import authentication
 from rest_framework import exceptions
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+class JWTCookieAuthentication(JWTAuthentication):
+    def authenticate(self, request):
+        # Allow either cookie or header for API usability
+        raw_token = request.COOKIES.get('access_token') or request.META.get('HTTP_AUTHORIZATION', '').replace('Bearer ', '')
+        if not raw_token:
+            return None
+            
+        try:
+            validated_token = self.get_validated_token(raw_token)
+            return self.get_user(validated_token), validated_token
+        except Exception:
+            return None
 from rest_framework.permissions import BasePermission
 from .models import ApiKey
 from core.security import verify_api_key
