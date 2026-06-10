@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Landing from './pages/Landing';
+import NamespaceDetail from './pages/NamespaceDetail';
 import './styles/variables.css';
 import './styles/styles.css';
 
@@ -27,6 +28,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/namespaces/:name" 
+        element={
+          <ProtectedRoute>
+            <NamespaceDetail />
           </ProtectedRoute>
         } 
       />
