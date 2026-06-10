@@ -68,6 +68,11 @@ class NamespaceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Namespace.objects.filter(tenant=self.request.user).order_by('-created_at')
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"namespaces": serializer.data})
+
     def get_serializer_class(self):
         if self.action == 'create':
             return NamespaceCreateSerializer
@@ -99,12 +104,22 @@ class NamespaceDocumentListView(generics.ListAPIView):
         ns = get_object_or_404(Namespace, tenant=self.request.user, name=name)
         return Document.objects.filter(namespace=ns).order_by('-created_at')
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"documents": serializer.data})
+
 class ApiKeyViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
     serializer_class = ApiKeySerializer
 
     def get_queryset(self):
         return ApiKey.objects.filter(tenant=self.request.user).order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({"keys": serializer.data})
 
     def create(self, request, *args, **kwargs):
         label = request.data.get('label', 'Unnamed Key')
@@ -114,7 +129,7 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
         raw_key, api_key = KeyService.create_key(request.user, label, role, namespace_name)
         
         return Response({
-            "api_key": raw_key,
+            "key": raw_key,
             "prefix": api_key.prefix,
             "label": api_key.label,
             "id": api_key.id

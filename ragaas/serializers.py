@@ -40,16 +40,17 @@ class NamespaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Namespace
         fields = (
-            'id', 'name', 'doc_count', 'token_count', 
-            'llm_provider', 'llm_model', 
-            'embedding_provider', 'embedding_model', 'created_at'
+            'id', 'name', 'doc_count', 'token_count', 'rag_type', 'config',
+            'llm_provider', 'llm_model', 'llm_api_key', 'llm_base_url',
+            'embedding_provider', 'embedding_model', 'embedding_api_key', 'embedding_base_url',
+            'created_at'
         )
 
 class NamespaceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Namespace
         fields = (
-            'name', 'llm_provider', 'llm_model', 'llm_api_key', 'llm_base_url',
+            'name', 'rag_type', 'config', 'llm_provider', 'llm_model', 'llm_api_key', 'llm_base_url',
             'embedding_provider', 'embedding_model', 'embedding_api_key', 'embedding_base_url'
         )
 

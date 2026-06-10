@@ -4,8 +4,7 @@ from .models import Namespace, Document, UsageEvent, ApiKey, Tenant
 from core.embedding_service import EmbeddingService
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from qdrant_client import QdrantClient
-from qdrant_client.http import models as qdrant_models
+
 
 class KeyService:
     @staticmethod
@@ -32,10 +31,31 @@ class KeyService:
 class NamespaceService:
     @staticmethod
     def create_namespace(tenant, data):
+        from phoenix.framework.rag.config import RAGConfig, CAGConfig, AgenticRAGConfig, MultiModalRAGConfig
+        import dataclasses
+        
+        rag_type = data.get('rag_type', 'standard')
+        
+        if rag_type == 'cag':
+            phx_cfg = dataclasses.asdict(CAGConfig())
+        elif rag_type == 'agentic':
+            phx_cfg = dataclasses.asdict(AgenticRAGConfig())
+        elif rag_type == 'multimodal':
+            phx_cfg = dataclasses.asdict(MultiModalRAGConfig())
+        else:
+            phx_cfg = dataclasses.asdict(RAGConfig())
+            
+        # Merge any provided config overrides
+        provided_config = data.get('config', {})
+        if isinstance(provided_config, dict):
+            phx_cfg.update(provided_config)
+            
         ns, created = Namespace.objects.get_or_create(
             tenant=tenant, 
             name=data.get('name'),
             defaults={
+                'rag_type': rag_type,
+                'config': phx_cfg,
                 'llm_provider': data.get('llm_provider', 'openai'),
                 'llm_model': data.get('llm_model', 'gpt-4o-mini'),
                 'llm_api_key': data.get('llm_api_key'),
@@ -57,108 +77,168 @@ class NamespaceService:
             return True
         return False
 
-class QueryService:
-    def __init__(self):
-        # Initializing Qdrant client
+class PhoenixEmbeddingAdapter:
+    """Adapter to make core.embedding_service compatible with Phoenix BaseEmbeddings."""
+    def __init__(self, provider, model, api_key, base_url):
+        self.service = EmbeddingService(provider, model, api_key, base_url)
+
+    def embed_documents(self, texts):
+        return self.service.embed_batch(texts)
+
+    def embed_query(self, text):
+        return self.service.embed_text(text, is_query=True)
+
+class QdrantVectorDBAdapter:
+    """Adapter to use Qdrant for retrieval in Phoenix RAG."""
+    def __init__(self, collection_name: str, embedding_service: PhoenixEmbeddingAdapter, namespace_id: str = None):
+        self.collection_name = collection_name
+        self.embedding_service = embedding_service
+        self.namespace_id = namespace_id
+        self.client = None
+
+    async def init(self):
+        from qdrant_client import QdrantClient
         if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
-            self.qdrant = QdrantClient(
+            self.client = QdrantClient(
                 url=f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}",
                 api_key=settings.QDRANT_API_KEY,
             )
         else:
-            self.qdrant = QdrantClient(
-                host=settings.QDRANT_HOST,
-                port=settings.QDRANT_PORT,
+            self.client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
+
+    async def search(self, query: str, limit: int = 5, where: dict = None) -> list:
+        if not self.client:
+            await self.init()
+            
+        vector = self.embedding_service.embed_query(query)
+        from qdrant_client.http import models as qdrant_models
+        
+        query_filter = None
+        if self.namespace_id:
+            query_filter = qdrant_models.Filter(
+                must=[
+                    qdrant_models.FieldCondition(
+                        key="namespace_id",
+                        match=qdrant_models.MatchValue(value=self.namespace_id)
+                    )
+                ]
             )
+            
+        import asyncio
+        def _do_search():
+            return self.client.search(
+                collection_name=self.collection_name,
+                query_vector=vector,
+                query_filter=query_filter,
+                limit=limit
+            )
+            
+        results = await asyncio.to_thread(_do_search)
+        
+        docs = []
+        for point in results:
+            docs.append({
+                "content": point.payload.get("text", ""),
+                "metadata": point.payload,
+                "id": str(point.id),
+                "distance": point.score
+            })
+        return docs
+
+class QueryService:
+    def __init__(self):
+        pass
 
     def query(self, tenant, namespace_name, query_text, top_k=3, custom_model=None):
         import time
+        from asgiref.sync import async_to_sync
+        from phoenix.framework.rag import RAG, CAG, AgenticRAG, MultiModalRAG
+        from phoenix.framework.rag.config import RAGConfig, CAGConfig, AgenticRAGConfig, MultiModalRAGConfig
+        from phoenix.services.llm.openai import OpenAILLM
+
+        import os
+
         start_time = time.time()
-        
         ns = Namespace.objects.get(tenant=tenant, name=namespace_name)
         
-        # 1. Embed query
-        embedding_service = EmbeddingService(
+        # 1. Setup Embeddings Adapter
+        embeddings = PhoenixEmbeddingAdapter(
             provider=ns.embedding_provider,
             model=ns.embedding_model,
             api_key=ns.embedding_api_key,
             base_url=ns.embedding_base_url,
         )
-        query_vector = embedding_service.embed_query(query_text)
-        
-        # 2. Search Qdrant
+
+        # 2. Setup Vector DB (Qdrant adapter matching tasks.py collection format)
         collection_name = f"tenant_{tenant.id.hex}"
+        vector_db = QdrantVectorDBAdapter(collection_name=collection_name, embedding_service=embeddings, namespace_id=str(ns.id))
         
-        try:
-            results = self.qdrant.search(
-                collection_name=collection_name,
-                query_vector=query_vector,
-                limit=top_k,
-                query_filter=qdrant_models.Filter(
-                    must=[
-                        qdrant_models.FieldCondition(
-                            key="namespace_id",
-                            match=qdrant_models.MatchValue(value=str(ns.id)),
-                        )
-                    ]
-                ),
-            )
-        except Exception:
-            results = []
-            
-        context_parts = []
-        for i, hit in enumerate(results):
-            source = hit.payload.get("filename", "Unknown")
-            text = hit.payload.get("text", "")
-            context_parts.append(f"[Source {i+1}: {source}]\n{text}")
-            
-        context = "\n\n".join(context_parts)
-        
-        # 3. Generate Answer (mocked logic or call LLM)
+        # 3. Setup LLM
         llm_model = custom_model or ns.llm_model
         
-        if settings.MOCK_LLM:
-            answer = f"Mocked answer for query '{query_text}'. Found {len(results)} contexts."
-            tokens_used = 100
-        else:
-            from openai import OpenAI
-            import anthropic
-            
-            # Simple OpenAI usage
-            if ns.llm_provider == "openai":
-                client = OpenAI(
-                    api_key=ns.llm_api_key or os.environ.get("OPENAI_API_KEY"),
-                    base_url=ns.llm_base_url
-                )
-                response = client.chat.completions.create(
-                    model=llm_model,
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant. Use the provided context to answer the user's question."},
-                        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query_text}"}
-                    ]
-                )
-                answer = response.choices[0].message.content
-                tokens_used = response.usage.total_tokens
-            elif ns.llm_provider == "anthropic":
-                client = anthropic.Anthropic(
-                    api_key=ns.llm_api_key or os.environ.get("ANTHROPIC_API_KEY"),
-                    base_url=ns.llm_base_url
-                )
-                response = client.messages.create(
-                    model=llm_model,
-                    max_tokens=1000,
-                    system="You are a helpful assistant. Use the provided context to answer the user's question.",
-                    messages=[
-                        {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query_text}"}
-                    ]
-                )
-                answer = response.content[0].text
-                tokens_used = response.usage.input_tokens + response.usage.output_tokens
-            else:
-                answer = f"Unsupported LLM provider: {ns.llm_provider}"
-                tokens_used = 0
+        if ns.llm_provider == "openai":
+            # Temporary override env vars for OpenAILLM since it uses config/env internally
+            old_key = os.environ.get("OPENAI_API_KEY")
+            old_url = os.environ.get("OPENAI_API_BASE")
+            if ns.llm_api_key:
+                os.environ["OPENAI_API_KEY"] = ns.llm_api_key
+            if ns.llm_base_url:
+                os.environ["OPENAI_API_BASE"] = ns.llm_base_url
                 
+            llm = OpenAILLM()
+            llm.model = llm_model
+            llm.api_key = ns.llm_api_key or os.environ.get("OPENAI_API_KEY")
+            llm.base_url = ns.llm_base_url or os.environ.get("OPENAI_API_BASE")
+        else:
+            # Fallback to a mock LLM for unsupported providers in this refactor
+            class MockLLM:
+                async def init(self): pass
+                async def generate(self, prompt, **kwargs): return f"Mock answer for {ns.llm_provider}"
+            llm = MockLLM()
+            
+        # 4. Instantiate Phoenix RAG Framework based on rag_type
+        rag_type = ns.rag_type.lower()
+        cfg_dict = ns.config or {}
+        cfg_dict["top_k"] = top_k
+        
+        if rag_type == 'cag':
+            config = CAGConfig(**cfg_dict)
+            rag = CAG(config=config, llm=llm, vector_db=vector_db, embeddings=embeddings)
+        elif rag_type == 'agentic':
+            config = AgenticRAGConfig(**cfg_dict)
+            rag = AgenticRAG(config=config, llm=llm, vector_db=vector_db, embeddings=embeddings)
+        elif rag_type == 'multimodal':
+            config = MultiModalRAGConfig(**cfg_dict)
+            rag = MultiModalRAG(config=config, llm=llm, vector_db=vector_db, embeddings=embeddings)
+        else:
+            config = RAGConfig(**cfg_dict)
+            rag = RAG(config=config, llm=llm, vector_db=vector_db, embeddings=embeddings)
+            
+        # 5. Run the query synchronously
+        async def run_query():
+            await vector_db.init()
+            if hasattr(llm, 'init'):
+                await llm.init()
+            # If the user asks to "query with sources" we can get the chunks
+            if hasattr(rag, 'query_with_sources'):
+                return await rag.query_with_sources(query_text)
+            else:
+                answer = await rag.query(query_text)
+                return {"answer": answer, "sources": []}
+                
+        try:
+            result = async_to_sync(run_query)()
+            answer = result.get("answer", "")
+            sources = result.get("sources", [])
+        finally:
+            if ns.llm_provider == "openai":
+                if old_key is not None: os.environ["OPENAI_API_KEY"] = old_key
+                else: os.environ.pop("OPENAI_API_KEY", None)
+                if old_url is not None: os.environ["OPENAI_API_BASE"] = old_url
+                else: os.environ.pop("OPENAI_API_BASE", None)
+
         query_ms = int((time.time() - start_time) * 1000)
+        tokens_used = 0 # Phoenix might not expose tokens natively yet
         
         UsageEvent.objects.create(
             tenant=tenant,
@@ -172,14 +252,11 @@ class QueryService:
             "answer": answer,
             "context_chunks": [
                 {
-                    "text": h.payload.get("text"),
-                    "score": h.score,
-                    "metadata": {
-                        "filename": h.payload.get("filename"),
-                        "page": h.payload.get("page", 1)
-                    }
-                } for h in results
-            ],
+                    "text": str(s.get("text", "")),
+                    "score": s.get("score", 0.0),
+                    "metadata": s.get("metadata", {})
+                } for s in sources
+            ] if isinstance(sources, list) else [],
             "usage": {
                 "tokens": tokens_used,
                 "latency_ms": query_ms,

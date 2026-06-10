@@ -1,0 +1,1492 @@
+================================================================================
+   HASHIRA-OS — FULL AGENT-LEVEL SOFTWARE REQUIREMENTS SPECIFICATION
+   EACH AGENT: BRAIN SPEC · TOOL STACK · FUNCTIONAL REQUIREMENTS
+   VERSION: 2.0.0  |  DATE: 2026-05-07  |  STATUS: ENGINEERING DRAFT
+================================================================================
+
+HOW TO READ THIS DOCUMENT
+--------------------------
+Each agent section is structured as:
+
+  [AGENT NAME]
+  ├── BRAIN SPEC       → Model type, fine-tune target, context config
+  ├── TOOL STACK       → Every tool, library, API with version/config notes
+  ├── INTERFACES       → Inputs accepted / Outputs produced
+  └── FUNCTIONAL REQ   → FR-XX.Y.Z task/subtask tree (SHALL language)
+
+"Brain" = the cognitive engine powering the agent's reasoning.
+"Tools" = the external systems/libraries the agent is allowed to invoke.
+
+All agents MUST receive Rengoku security clearance before tool invocation.
+All agents communicate exclusively via the IPC Bus (HMAC-signed envelopes).
+
+================================================================================
+LAYER 5 — AGENT 01: KAGAYA (MASTER OVERSEER)
+OS Analog: systemd PID 1 — Init System & Service Manager
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Large Language Model (LLM) — Orchestration-Tuned
+Base Model:     GPT-4-class or Claude Opus-class (128k+ context window required)
+Fine-Tune:      Supervised fine-tuning on:
+                  - Tree-of-Thought (ToT) reasoning traces
+                  - Multi-agent scheduling datasets (task → DAG mappings)
+                  - Conflict resolution dialogues (deadlock + preemption cases)
+                  - System-wide failure triage logs
+Inference Mode: Chain-of-Thought with explicit step enumeration ENABLED
+                Self-consistency sampling (N=3 for critical decompositions)
+Context Config: Full session context retained at Kagaya layer ONLY.
+                Sub-agent context = task slice only (no full history leak).
+Temperature:    0.2 (low — deterministic orchestration, not creative)
+Token Budget:   12,000 tokens per decomposition pass (enforced hard ceiling)
+Prompt Cache:   System role prompt + agent registry MUST be cached between turns
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: DAG Constructor
+  Library:    NetworkX (Python) — v3.x
+  Purpose:    Build, validate, and traverse directed acyclic execution graphs
+  Config:     Topological sort on every DAG build to detect cycles pre-execution
+  Interface:  dag.add_node(task_id, agent=, priority=, timeout_ms=, token_budget=)
+              dag.add_edge(dependency_task_id, dependent_task_id)
+              dag.topological_sort() → ordered execution list
+              dag.parallel_levels() → list of independent node batches
+
+Tool 2: State Matrix Evaluator
+  Library:    Custom in-process state store (Redis or in-memory dict)
+  Purpose:    Real-time tracking of all 9 agent states + active task counts
+  Schema:     { agent_id: { state: IDLE|RUNNING|BLOCKED|FAILED|TIMEOUT,
+                             current_task_id: str|null,
+                             last_heartbeat_ts: int,
+                             restart_count: int } }
+  Config:     Heartbeat timeout = 5000ms (agent presumed dead if exceeded)
+              State transitions logged with timestamps to audit stream
+
+Tool 3: systemctl Wrapper
+  Interface:  Python subprocess wrapper around systemctl
+  Commands:   start <agent_unit> | stop <agent_unit> | restart <agent_unit>
+              status <agent_unit> → returns State Matrix entry
+              enable <agent_unit> | disable <agent_unit>
+  Config:     Each agent runs as a dedicated systemd unit file
+              Unit files define: memory limit, CPU quota, restart policy
+
+Tool 4: Conflict Resolution Matrix
+  Type:       In-memory priority table (static config + runtime overrides)
+  Schema:     { (agent_A, agent_B, resource): winner_agent_id, strategy }
+  Strategies: PREEMPT (kill lower priority), QUEUE (wait), SPLIT (partition)
+  Config:     Loaded from conflict_matrix.yaml at startup, hot-reloadable
+
+Tool 5: IPC Bus Client
+  Library:    ZeroMQ (PyZMQ) — DEALER/ROUTER pattern for agent-to-agent routing
+  Config:     HMAC-SHA256 signing on all outbound messages
+              Message schema: { sender_id, target_id, message_type,
+                                payload, timestamp, correlation_id,
+                                clearance_token, hmac_signature }
+  Endpoints:  Each agent binds a named ZMQ socket (ipc:///tmp/hashira/<agent>.sock)
+
+Tool 6: Response Synthesizer
+  Type:       LLM call (same Kagaya brain model)
+  Purpose:    Final aggregation of sub-agent outputs into user-facing response
+  Input:      Structured JSON outputs from all DAG leaf nodes
+  Constraint: Single synthesis call per user request — NOT per agent turn
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    Raw natural language user prompt
+            Structured JSON intent object
+            System-wide failure flags from any agent (via IPC Bus)
+            Heartbeat pings from all agents
+
+Produces:   DAG objects dispatched to target agents via IPC Bus
+            Final natural language response to user
+            Execution summary (agent chain, timing, failures)
+            systemctl commands to lifecycle-manage agents
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-01.1  Intent Normalization
+  └─ FR-01.1.1  Kagaya SHALL receive raw user input and sanitize it for:
+                prompt injection patterns, shell escape sequences, null bytes,
+                and overlong unicode sequences before any processing.
+  └─ FR-01.1.2  Kagaya SHALL normalize all valid input into a canonical
+                IntentObject:
+                  { intent_id: uuid, type: QUERY|TASK|EVENT|FAILURE,
+                    raw_text: str, normalized_text: str,
+                    session_id: str, timestamp: int }
+  └─ FR-01.1.3  Kagaya SHALL classify intent type using a lightweight
+                classifier (rule-based regex + keyword matching) BEFORE
+                invoking the LLM, to save tokens on trivial classifications.
+  └─ FR-01.1.4  Kagaya SHALL reject and return structured errors for inputs
+                that fail sanitization — no LLM call SHALL be made on
+                rejected inputs.
+
+FR-01.2  DAG Construction
+  └─ FR-01.2.1  Kagaya SHALL invoke its LLM brain with a structured
+                decomposition prompt for each valid IntentObject, requesting
+                output as a JSON task list with dependency annotations.
+  └─ FR-01.2.2  Kagaya SHALL feed the LLM task list into the DAG Constructor
+                (NetworkX) to build a validated acyclic execution graph.
+  └─ FR-01.2.3  Kagaya SHALL run topological_sort() on every DAG immediately
+                after construction. Any detected cycle SHALL cause the
+                full DAG to be rejected and the LLM re-prompted with the
+                cycle error as feedback (max 2 re-prompt attempts).
+  └─ FR-01.2.4  Kagaya SHALL annotate each DAG node with:
+                  - target_agent_id (exactly one per node)
+                  - priority: CRITICAL | HIGH | NORMAL | LOW
+                  - timeout_ms: per-agent default or task-specific override
+                  - token_budget: integer token ceiling for LLM agents
+                  - rengoku_required: bool (true for all tool-invoking nodes)
+  └─ FR-01.2.5  Kagaya SHALL call parallel_levels() and dispatch all nodes
+                in the same parallel batch simultaneously, not sequentially.
+
+FR-01.3  Agent Lifecycle Management
+  └─ FR-01.3.1  Kagaya SHALL read each agent's last_heartbeat_ts from the
+                State Matrix every 5000ms and flag any agent whose last
+                heartbeat exceeds the threshold as TIMEOUT.
+  └─ FR-01.3.2  Kagaya SHALL issue systemctl restart <unit> for any TIMEOUT
+                or FAILED agent, up to restart_count = 3.
+  └─ FR-01.3.3  Kagaya SHALL mark an agent DEGRADED after 3 failed restarts
+                and reroute its pending tasks to a fallback:
+                  - Muichiro fallback → Kagaya direct code gen (reduced quality)
+                  - Shinobu fallback → Web search via Kagaya (no local RAG)
+                  - Obanai fallback → Temporary in-memory store
+                  - All others → User notification via Zenitsu + graceful error
+  └─ FR-01.3.4  Kagaya SHALL update the State Matrix atomically on every
+                lifecycle event using a mutex lock to prevent race conditions.
+
+FR-01.4  Conflict Resolution
+  └─ FR-01.4.1  Kagaya SHALL detect resource contention (two agents requesting
+                the same file lock, network port, or GPU slice) by monitoring
+                IPC Bus BLOCKED state messages.
+  └─ FR-01.4.2  Kagaya SHALL resolve conflicts by consulting the Conflict
+                Resolution Matrix (conflict_matrix.yaml) and applying the
+                defined strategy (PREEMPT | QUEUE | SPLIT).
+  └─ FR-01.4.3  Kagaya SHALL log all conflict events to the audit stream with
+                both agent IDs, the contested resource, and resolution outcome.
+
+FR-01.5  Response Aggregation
+  └─ FR-01.5.1  Kagaya SHALL collect CompletionReceipt objects from all DAG
+                leaf nodes before beginning synthesis.
+  └─ FR-01.5.2  Kagaya SHALL invoke the Response Synthesizer (LLM call) ONCE
+                passing all leaf outputs as a compact JSON bundle.
+  └─ FR-01.5.3  Kagaya SHALL attach an ExecutionSummary to every response:
+                  { agents_used: [], total_ms: int, retries: int,
+                    token_total: int, failures: [] }
+  └─ FR-01.5.4  Kagaya SHALL strip all internal agent IDs, clearance tokens,
+                raw tool outputs, and sandbox identifiers from the
+                user-facing response unless the user explicitly requested
+                debug output.
+
+FR-01.6  Session Token Tracking
+  └─ FR-01.6.1  Kagaya SHALL maintain a per-session cumulative token counter
+                updated after every LLM call across all agents.
+  └─ FR-01.6.2  Kagaya SHALL trigger a Zenitsu WARNING notification when
+                session tokens exceed 80% of the configured session ceiling.
+  └─ FR-01.6.3  Kagaya SHALL halt LLM calls and return a graceful token-limit
+                error when the session ceiling is reached.
+
+
+================================================================================
+LAYER 5 — AGENT 02: INOSUKE (AUTONOMOUS ACTION AGENT)
+OS Analog: systemd Target / Execution Engine — Runner
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Vision-Language-Action (VLA) Model + Reinforcement Learning Loop
+Base Model:     SeeAct / WebAgent architecture (or equivalent VLA fine-tune)
+                Fallback: GPT-4V-class model for visual DOM interpretation
+Fine-Tune:      RL fine-tuning on:
+                  - Web navigation task datasets (MiniWoB++, WebArena)
+                  - Ansible playbook execution traces
+                  - Bash provisioning logs with success/failure labels
+                  - Browser DOM interaction trajectories (click, type, scroll)
+Inference Mode: Action prediction loop: [OBSERVE → PLAN → ACT → VERIFY]
+                Each loop iteration = one browser/shell action
+Context Config: Rolling action history window (last 20 actions retained)
+                Full page DOM snapshot injected at each OBSERVE step
+Temperature:    0.1 (near-deterministic — actions must be precise)
+Token Budget:   3,000 tokens per action loop iteration
+                Max 30 iterations per task (hard ceiling, then FAIL + report)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: Playwright API
+  Library:    playwright-python — v1.44+
+  Purpose:    Headless Chromium browser automation
+  Config:     Launch args: --no-sandbox, --disable-dev-shm-usage,
+                            --disable-gpu, --headless=new
+              Browser context per task (isolated cookies, storage, cache)
+              Screenshot after every action step (compressed PNG, 80% quality)
+              Network request interception enabled for data extraction tasks
+              Timeout per action: 10,000ms (configurable per directive)
+  DOM Access: page.query_selector_all() for element discovery
+              page.evaluate() for JavaScript execution in page context
+              page.accessibility.snapshot() for ARIA-based element mapping
+
+Tool 2: Puppeteer API (Node.js fallback)
+  Library:    puppeteer — v22+
+  Purpose:    Alternative browser backend when Playwright encounters
+              Chromium-specific compatibility issues
+  Config:     Same isolation model as Playwright
+              Used only when Playwright action returns DOM_NOT_FOUND for
+              3 consecutive retries on the same element
+
+Tool 3: Ansible Core
+  Version:    ansible-core — v2.17+
+  Purpose:    Automated environment provisioning, package management,
+              machine state idempotent configuration
+  Config:     Inventory: dynamic (target host passed per directive)
+              Playbook execution: ansible-playbook -i <inventory> <playbook.yml>
+              Vault for secrets: ansible-vault (keys fetched from secrets store)
+              Output: JSON-formatted task results (ANSIBLE_STDOUT_CALLBACK=json)
+  Modules:    apt, yum, pip, copy, template, service, systemd, file, git,
+              command, shell (shell module requires Rengoku CRITICAL clearance)
+
+Tool 4: Bash Provisioner
+  Type:       Controlled subprocess execution via Giyu (NOT direct shell)
+  Purpose:    Lightweight provisioning when Ansible overhead is unwarranted
+              (single-command environment setups, quick state checks)
+  Interface:  Inosuke packages a BashDirective object and delegates to Giyu
+              Inosuke NEVER spawns its own shell — always routes through Giyu
+
+Tool 5: Auto-Recovery Loop Engine
+  Type:       Internal Python retry controller
+  Config:     Max retries: 3 (configurable per task type)
+              Backoff: exponential (base=2s, max=30s)
+              Failure classification before each retry:
+                TRANSIENT  → retry allowed (network timeout, DOM not ready)
+                PERMANENT  → no retry, escalate to Kagaya
+                SECURITY_BLOCK → no retry, immediate escalation + full stop
+  Logging:    Each retry attempt logged with attempt number, failure type,
+              action that failed, and browser/environment state snapshot
+
+Tool 6: Environment Diff Reporter
+  Type:       Python script using ansible.builtin.setup + difflib
+  Purpose:    Capture pre/post machine state and produce human-readable diff
+  Output:     JSON diff: { added_packages: [], removed_packages: [],
+                            changed_services: [], changed_files: [] }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    Structured OperationalDirective from Kagaya (IPC Bus only):
+              { directive_id, type: BROWSER|PROVISION|HYBRID,
+                steps: [{ action, target, params, verify_condition }],
+                environment_target: str|null,
+                rengoku_clearance_token: str }
+
+Produces:   BrowserStateFlag per step: SUCCESS|TIMEOUT|DOM_NOT_FOUND|
+              HTTP_ERROR|CAPTCHA_BLOCKED|JS_ERROR
+            ExecutionLog: per-step action + result + screenshot path
+            EnvironmentDiff: pre/post machine state JSON
+            TaskCompletionReceipt: { directive_id, status, steps_completed,
+                                     steps_failed, total_ms, log_path }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-02.1  Directive Validation
+  └─ FR-02.1.1  Inosuke SHALL validate every incoming OperationalDirective
+                schema before execution, rejecting payloads missing required
+                fields: directive_id, type, steps[], rengoku_clearance_token.
+  └─ FR-02.1.2  Inosuke SHALL verify the rengoku_clearance_token cryptographic
+                signature before processing any step. Invalid tokens SHALL
+                cause immediate task rejection and escalation to Kagaya.
+  └─ FR-02.1.3  Inosuke SHALL validate each step object for action type
+                membership in the allowed action registry:
+                  BROWSER: [navigate, click, type, scroll, screenshot,
+                             extract, submit, wait, evaluate]
+                  PROVISION: [install, remove, configure, start_service,
+                               stop_service, clone_repo, apply_template]
+
+FR-02.2  Browser Session Management
+  └─ FR-02.2.1  Inosuke SHALL request Rengoku sandbox clearance BEFORE
+                launching any browser session, passing the target URL
+                and session profile.
+  └─ FR-02.2.2  Inosuke SHALL create one isolated Playwright BrowserContext
+                per directive, with fresh cookies, local storage, and cache.
+  └─ FR-02.2.3  Inosuke SHALL capture a full-page screenshot after every
+                browser action step and attach it to the ExecutionLog.
+  └─ FR-02.2.4  Inosuke SHALL intercept and log all network requests made
+                during browser sessions, forwarding the request log to
+                Rengoku for post-session audit.
+  └─ FR-02.2.5  Inosuke SHALL destroy the BrowserContext immediately after
+                task completion or failure — no session persistence allowed.
+  └─ FR-02.2.6  Inosuke SHALL detect CAPTCHA challenges (via page title
+                heuristics, DOM class names, or HTTP 403 patterns) and
+                classify the step as CAPTCHA_BLOCKED without retrying.
+
+FR-02.3  DOM Interaction Execution
+  └─ FR-02.3.1  Inosuke SHALL use page.accessibility.snapshot() to build
+                an ARIA element map before each interaction to reduce
+                DOM ambiguity failures.
+  └─ FR-02.3.2  Inosuke SHALL prefer ARIA roles and data-testid selectors
+                over CSS class selectors for element targeting (class names
+                change; roles are semantically stable).
+  └─ FR-02.3.3  Inosuke SHALL validate element visibility and interactability
+                before issuing click or type actions (is_visible + is_enabled).
+  └─ FR-02.3.4  Inosuke SHALL inject an explicit wait (waitForNetworkIdle)
+                after navigation actions before proceeding to the next step.
+
+FR-02.4  Environment Provisioning Execution
+  └─ FR-02.4.1  Inosuke SHALL capture a machine state snapshot via
+                Environment Diff Reporter before executing any provisioning
+                playbook.
+  └─ FR-02.4.2  Inosuke SHALL execute Ansible playbooks with
+                ANSIBLE_STDOUT_CALLBACK=json to produce machine-parseable
+                output for CompletionReceipt generation.
+  └─ FR-02.4.3  Inosuke SHALL run post-provision health checks defined in
+                the directive's verify_condition field and mark the step
+                FAILED if the health check does not return expected output.
+  └─ FR-02.4.4  Inosuke SHALL capture the post-provision machine state and
+                produce an EnvironmentDiff JSON attached to the receipt.
+
+FR-02.5  Auto-Recovery Execution
+  └─ FR-02.5.1  Inosuke SHALL classify the failure type of each failed step
+                BEFORE deciding to retry:
+                  TRANSIENT → network timeout, element not ready, HTTP 5xx
+                  PERMANENT → HTTP 404, missing required dependency, bad config
+                  SECURITY_BLOCK → Rengoku DENY, clearance token invalid
+  └─ FR-02.5.2  Inosuke SHALL retry only TRANSIENT failures, applying
+                exponential backoff: 2s, 4s, 8s (max 3 attempts).
+  └─ FR-02.5.3  Inosuke SHALL immediately escalate PERMANENT and
+                SECURITY_BLOCK failures to Kagaya without retrying, including
+                the full step context, failure type, and current state.
+  └─ FR-02.5.4  Inosuke SHALL emit a StepCompletionEvent to the IPC Bus
+                after every step (success or failure), not only at task end.
+
+
+================================================================================
+LAYER 8 — AGENT 03: GIYU (CORE SYSTEM AGENT)
+OS Analog: bash/zsh — Shell & CLI Intermediary
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Code/Shell-Optimized LLM — Deterministic CLI Execution Mode
+Base Model:     Code LLaMA 34B (instruct) or DeepSeek-Coder-V2 — quantized INT8
+                (Smaller, faster, shell-domain-specialist — no need for a large
+                generalist model at this layer)
+Fine-Tune:      POSIX shell command dataset fine-tuning:
+                  - Shell command → intent mapping (bidirectional)
+                  - Error message → root cause → corrected command traces
+                  - Process tree analysis traces (ps, strace, lsof outputs)
+                  - stdin/stdout/stderr flow interpretation
+Inference Mode: ONLY invoked for intent-to-command translation and error
+                interpretation. NOT invoked for command execution itself.
+                (Execution is always deterministic subprocess — LLM is advisory)
+Context Config: Stateless per command — no session history at this layer
+Temperature:    0.0 (fully deterministic — shell commands are not creative)
+Token Budget:   800 tokens per command translation call (extremely lean)
+LLM Trigger:    LLM is invoked ONLY when:
+                  a) Intent string is ambiguous (cannot be mapped by rule engine)
+                  b) Command returned a non-zero exit code (error interpretation)
+                  c) Process anomaly detected and root cause analysis needed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: Secure Shell / PTY Spawner
+  Library:    Python pty module + pexpect (v4.9+)
+  Purpose:    Spawn isolated pseudo-terminal sessions per command execution
+  Config:     Each command runs in a fresh PTY (no shell state leakage)
+              Environment vars sanitized (no PATH manipulation from input)
+              Working directory: configurable per command, defaults to /tmp/giyu
+              ulimit applied per PTY:
+                - Max file size:    100MB
+                - Max open files:   64
+                - Max CPU time:     30s (then SIGKILL)
+                - Max memory:       512MB virtual
+  Streams:    stdout and stderr captured via pty.read() in streaming chunks
+              EOF detection via IOError on pty.read()
+
+Tool 2: Process Monitor (ps / top API)
+  Library:    psutil (Python) — v6.x
+  Purpose:    Real-time monitoring of all agent-spawned processes
+  Metrics:    pid, ppid, name, cmdline, cpu_percent, memory_rss, memory_vms,
+              status (running/sleeping/zombie/stopped), open_files, connections
+  Config:     Monitoring interval: 1000ms
+              Zombie detection: status == 'zombie' → SIGCHLD + waitpid
+              CPU runaway threshold: cpu_percent > 90% for > 10s → WARNING
+              Memory leak threshold: memory_rss growth > 50MB/min → WARNING
+
+Tool 3: Process Kill Interface
+  Library:    psutil.Process.send_signal() + os.kill()
+  Signals:    SIGTERM (graceful), SIGKILL (force), SIGHUP (reload),
+              SIGSTOP (pause), SIGCONT (resume)
+  Config:     Always send SIGTERM first, wait 3s, then SIGKILL if still alive
+              PID validation before kill (confirm PID belongs to Giyu session)
+
+Tool 4: IPC Stream Forwarder
+  Library:    ZeroMQ PUSH socket to Kagaya PULL socket
+  Purpose:    Real-time stdout/stderr streaming to Kagaya (not buffered)
+  Config:     Chunk size: 4096 bytes per push message
+              Message type tag: STDOUT_CHUNK | STDERR_CHUNK | EXIT_CODE | EOF
+              No local disk persistence of forwarded streams
+
+Tool 5: Command Rule Engine
+  Type:       Regex + allowlist/blocklist static rule engine (no LLM)
+  Purpose:    First-pass intent → command mapping without LLM cost
+  Config:     Rules loaded from command_rules.yaml (hot-reloadable)
+              Allowlist: known-safe command patterns mapped to templates
+              Blocklist: rm -rf /, dd if=/dev/*, mkfs.*, shutdown, reboot,
+                          curl | bash, wget | sh, and similar dangerous patterns
+              Blocklisted commands → DENY before even reaching Rengoku
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    CLIDirective from Kagaya or Inosuke (IPC Bus only):
+              { directive_id, intent_string: str, stdin_data: str|null,
+                working_dir: str, env_vars: dict, timeout_ms: int,
+                rengoku_clearance_token: str }
+
+Produces:   Streaming: STDOUT_CHUNK, STDERR_CHUNK events (IPC Bus)
+            Terminal: { directive_id, exit_code: int, pid: int,
+                        execution_ms: int, error_class: str|null }
+            ProcessReport (on anomaly): { pid, cpu_pct, mem_rss,
+                                          anomaly_type, action_taken }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-03.1  Command Translation
+  └─ FR-03.1.1  Giyu SHALL first pass the intent_string through the Command
+                Rule Engine (no LLM cost) to attempt direct rule-based mapping.
+  └─ FR-03.1.2  Giyu SHALL invoke the LLM brain ONLY if the rule engine
+                returns NO_MATCH for an intent string.
+  └─ FR-03.1.3  Giyu SHALL check the translated command against the
+                blocklist BEFORE forwarding to Rengoku. Blocklist matches
+                are rejected immediately with a DENIED_LOCALLY flag.
+  └─ FR-03.1.4  Giyu SHALL forward all non-blocked commands to Rengoku for
+                security clearance and MUST NOT execute without clearance.
+
+FR-03.2  PTY Session Execution
+  └─ FR-03.2.1  Giyu SHALL spawn a fresh PTY for every command directive
+                with the configured ulimits applied before execution starts.
+  └─ FR-03.2.2  Giyu SHALL inject sanitized environment variables only —
+                any env_var key containing PATH, LD_PRELOAD, LD_LIBRARY_PATH
+                SHALL be rejected and logged as a potential hijack attempt.
+  └─ FR-03.2.3  Giyu SHALL stream stdout and stderr in 4096-byte chunks to
+                the IPC Bus in real time — no buffering of full output.
+  └─ FR-03.2.4  Giyu SHALL capture the exit code and execution duration
+                upon PTY EOF and include both in the terminal receipt.
+  └─ FR-03.2.5  Giyu SHALL enforce the timeout_ms ceiling using a watchdog
+                timer — if exceeded, issue SIGKILL to the PTY process and
+                report TIMEOUT in the receipt.
+
+FR-03.3  Process Monitoring
+  └─ FR-03.3.1  Giyu SHALL poll all Giyu-owned processes via psutil every
+                1000ms during active task execution.
+  └─ FR-03.3.2  Giyu SHALL detect and report zombie processes immediately
+                using waitpid() cleanup, reporting PID and parent chain.
+  └─ FR-03.3.3  Giyu SHALL issue a WARNING to Kagaya if any process exceeds:
+                  - CPU: 90% for more than 10 consecutive seconds
+                  - Memory growth: >50MB/min
+  └─ FR-03.3.4  Giyu SHALL terminate any process triggering the anomaly
+                threshold after the WARNING is acknowledged by Kagaya,
+                or automatically after 30s with no acknowledgment.
+
+FR-03.4  Error Interpretation
+  └─ FR-03.4.1  Giyu SHALL invoke its LLM brain on any command returning
+                a non-zero exit code to generate a structured error report:
+                  { error_class, likely_cause, suggested_fix, is_retryable }
+  └─ FR-03.4.2  Giyu SHALL pass the error report to Kagaya alongside the
+                raw stderr — Kagaya decides whether to retry or escalate.
+
+FR-03.5  Stream Cleanup
+  └─ FR-03.5.1  Giyu SHALL discard all local copies of command output after
+                IPC Bus forwarding is confirmed (ZMQ send ACK received).
+  └─ FR-03.5.2  Giyu SHALL close all file descriptors and release the PTY
+                immediately after EOF and receipt delivery.
+
+
+================================================================================
+LAYER 7 — AGENT 04: RENGOKU (SECURITY AGENT)
+OS Analog: PAM / SELinux / AppArmor / nftables — Security & Access Control
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Hybrid: Deterministic Security Policy Engine (PRIMARY)
+                        + Anomaly Detection Transformer (SECONDARY/FALLBACK)
+Primary Brain:  Rule engine — NO LLM. Pure deterministic policy matching.
+                (Speed: sub-10ms decisions for rule-covered cases)
+Secondary Brain: DistilBERT-class transformer fine-tuned on:
+                  - CVE behavioral fingerprints (NVD dataset)
+                  - Malicious command structure corpus (VirusTotal CLI samples)
+                  - Prompt injection attack patterns
+                  - Path traversal and privilege escalation signatures
+                  Invoked ONLY when rule engine returns UNCERTAIN
+Secondary Mode: Binary classification: MALICIOUS (→DENY) | BENIGN (→ALLOW)
+                Confidence threshold: if confidence < 0.85 → DENY (fail-safe)
+Temperature:    N/A (transformer classifier — no sampling)
+Token Budget:   500 tokens max per anomaly detection call (lean, fast)
+LLM Policy:     Rengoku's secondary brain NEVER makes ALLOW decisions alone.
+                ALLOW requires: rule engine ALLOW, OR (UNCERTAIN + transformer
+                BENIGN with confidence >= 0.85). Any DENY from either engine
+                is FINAL.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: Security Rule Engine
+  Type:       Custom Python engine with YAML rule definitions
+  Config:     Rules loaded from security_rules.yaml (version-controlled)
+              Rule categories:
+                - COMMAND_BLOCKLIST: regex patterns for dangerous commands
+                - PATH_ALLOWLIST: permitted file operation directories
+                - PATH_BLOCKLIST: /etc/shadow, /proc/kcore, /sys/kernel, etc.
+                - SYSCALL_BLOCKLIST: ptrace, raw socket, module load, kexec
+                - NETWORK_ALLOWLIST: explicitly whitelisted IP/domain:port pairs
+                - PRIVILEGE_PATTERNS: sudo, su, setuid, chmod 777, chown root
+              Output: ALLOW | DENY | UNCERTAIN + matched_rule_id
+
+Tool 2: eBPF Hook System
+  Library:    bcc (BPF Compiler Collection) — Python bindings
+              OR bpftrace for lightweight one-liners
+  Purpose:    Real-time kernel-level syscall monitoring for all agent PIDs
+  Config:     Attach kprobe to: execve, open, connect, bind, ptrace,
+                                  init_module, finit_module, kexec_load
+              Whitelist of expected syscalls per agent role preloaded
+              Any syscall not on whitelist → ANOMALY event
+  Output:     SyscallEvent: { pid, agent_id, syscall_name, args,
+                               timestamp, verdict: ALLOWED|ANOMALY }
+
+Tool 3: Sandbox Manager
+  Library:    bubblewrap (bwrap) — CLI wrapper via subprocess
+              OR docker-py (Docker SDK for Python) — v7.x
+  Config:     Risk level → sandbox profile:
+                LOW      → bubblewrap (lightweight namespacing)
+                MEDIUM   → bubblewrap + network restriction
+                HIGH     → Docker container (gVisor runtime if available)
+                CRITICAL → Docker + no-network + read-only rootfs + seccomp
+              Sandbox TTL: auto-destroy on task completion OR timeout (60s)
+              Post-destroy: verify no residual volumes or network namespaces
+
+Tool 4: Firewall Interface (nftables)
+  Library:    python-nftables — nftables Python bindings
+  Config:     Default policy: DROP all outbound not in allowlist
+              Allowlist entries added per task (task-scoped rules)
+              Rules auto-purged on task completion
+              All blocked connections logged: { src_agent, dst_ip, dst_port,
+                                                protocol, timestamp, rule_id }
+
+Tool 5: Clearance Token Issuer
+  Type:       Python cryptography library — HMAC-SHA256
+  Purpose:    Sign and issue clearance tokens for ALLOW decisions
+  Schema:     { payload_hash: sha256, agent_id, timestamp, ttl_ms: 30000,
+                decision: ALLOW, rule_id: str }
+              Token signed with per-session HMAC key (rotated every session)
+  Validation: Any agent can verify token signature before trusting it
+
+Tool 6: Audit Log Writer
+  Type:       Append-only log file with SHA-256 hash chain
+  Config:     Each entry: { seq_id, timestamp, event_type, payload_hash,
+                             decision, rule_id, agent_id, prev_hash }
+              prev_hash = SHA-256 of previous entry (chain integrity)
+              Log rotation: 100MB max per file, compressed archive on rotate
+              Retention: minimum 90 days
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    SecurityCheckRequest from any agent (IPC Bus):
+              { request_id, requesting_agent, payload_type: COMMAND|FILE|
+                NETWORK|SANDBOX|SCRIPT, payload: str|dict,
+                risk_hint: LOW|MEDIUM|HIGH|CRITICAL }
+            eBPF SyscallEvent (kernel-level, not IPC)
+            SandboxRequest: { task_id, risk_level, payload_hash }
+
+Produces:   ClearanceDecision: { request_id, decision: ALLOW|DENY,
+                                  clearance_token: str|null,
+                                  rule_id: str, confidence: float,
+                                  audit_seq_id: int }
+            SyscallAnomalyAlert to Kagaya (immediate, bypasses queue)
+            AuditReport to Kagaya (per DAG execution cycle summary)
+            NetworkRule entries (nftables additions/removals)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-04.1  Clearance Decision Pipeline
+  └─ FR-04.1.1  Rengoku SHALL process every SecurityCheckRequest by first
+                running the deterministic Rule Engine.
+  └─ FR-04.1.2  Rengoku SHALL issue ALLOW immediately if the Rule Engine
+                returns ALLOW without invoking the Anomaly Transformer.
+  └─ FR-04.1.3  Rengoku SHALL issue DENY immediately if the Rule Engine
+                returns DENY without invoking the Anomaly Transformer.
+  └─ FR-04.1.4  Rengoku SHALL invoke the Anomaly Detection Transformer ONLY
+                when the Rule Engine returns UNCERTAIN.
+  └─ FR-04.1.5  Rengoku SHALL DENY any UNCERTAIN payload where the transformer
+                confidence is below 0.85, following a fail-safe model.
+  └─ FR-04.1.6  Rengoku SHALL complete every clearance decision within
+                100ms for rule-covered cases and 500ms for transformer cases.
+  └─ FR-04.1.7  Rengoku's DENY decision SHALL be absolute and cryptographically
+                signed. No other agent or operator command SHALL override it
+                at runtime.
+
+FR-04.2  eBPF Syscall Enforcement
+  └─ FR-04.2.1  Rengoku SHALL attach eBPF kprobes to all Hashira-OS agent
+                process groups at system startup.
+  └─ FR-04.2.2  Rengoku SHALL maintain a per-agent syscall whitelist loaded
+                from agent_syscall_profiles.yaml.
+  └─ FR-04.2.3  Rengoku SHALL immediately send SIGKILL to any process making
+                a syscall not on its whitelist and log a SyscallAnomalyAlert.
+  └─ FR-04.2.4  Rengoku SHALL route SyscallAnomalyAlerts to Kagaya via a
+                priority IPC channel that bypasses normal queue ordering.
+
+FR-04.3  Sandbox Lifecycle
+  └─ FR-04.3.1  Rengoku SHALL evaluate the risk_hint field of each
+                SandboxRequest and map it to the correct sandbox profile
+                (bwrap LOW/MEDIUM, Docker HIGH/CRITICAL).
+  └─ FR-04.3.2  Rengoku SHALL apply the minimum seccomp profile appropriate
+                for each risk level to all Docker containers.
+  └─ FR-04.3.3  Rengoku SHALL destroy all sandbox artifacts (container,
+                volumes, network namespace) within 5s of task completion.
+  └─ FR-04.3.4  Rengoku SHALL verify sandbox destruction by checking:
+                  docker ps -a | grep <sandbox_id> returns empty
+                  bwrap namespace no longer listed in /proc/<pid>/ns/
+
+FR-04.4  Network Firewall Management
+  └─ FR-04.4.1  Rengoku SHALL maintain a deny-all default outbound policy
+                via nftables at all times.
+  └─ FR-04.4.2  Rengoku SHALL add task-scoped ALLOW rules only when an agent
+                provides a valid network request with a cleared payload.
+  └─ FR-04.4.3  Rengoku SHALL automatically purge task-scoped firewall rules
+                within 2s of the corresponding task completion receipt.
+  └─ FR-04.4.4  Rengoku SHALL log all blocked connection attempts to the
+                audit log with full 5-tuple: src_ip, src_port, dst_ip,
+                dst_port, protocol.
+
+FR-04.5  Audit Chain Integrity
+  └─ FR-04.5.1  Rengoku SHALL write every clearance decision to the
+                append-only hash-chained audit log within 50ms of decision.
+  └─ FR-04.5.2  Rengoku SHALL expose an audit chain verification endpoint
+                that allows external audit tools to validate hash chain
+                integrity from any sequence ID.
+  └─ FR-04.5.3  Rengoku SHALL never write clearance tokens, plaintext secrets,
+                or user data to the audit log — only payload hashes.
+
+
+================================================================================
+LAYER 4 — AGENT 05: MUICHIRO (CODING AGENT)
+OS Analog: glibc / Compilers / Build Toolchains — System Libraries Layer
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Specialized Code LLM — Ultra-Long Context
+Base Model:     DeepSeek-Coder-V2-Instruct (236B MoE, 128k context)
+                OR Claude 3.5 Sonnet (code-optimized prompting mode)
+Fine-Tune:      Coding-specific SFT on:
+                  - Multi-language code generation (Python, TS, Rust, Go, C)
+                  - Bug backtrace → root cause → patch datasets (SWE-bench)
+                  - AST-level code refactoring traces
+                  - Architecture design pattern documentation
+                  - Compiler error message → corrected code pairs
+Inference Mode: Standard autoregressive with function/tool calling enabled
+                Fill-in-the-Middle (FIM) mode for targeted code completions
+Context Config: 128k token context window used for large repo analysis
+                Sliding window: 32k active context + 96k retrieved via LSP
+Temperature:    0.15 (slight variance for creative architecture; near-zero for
+                      debugging and patch generation)
+Token Budget:   8,000 tokens per generation pass (hard ceiling)
+                Architecture planning: 12,000 tokens (declared exception)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: Language Server Protocol (LSP) Integrations
+  Libraries:  pylsp (Python), typescript-language-server (TS/JS),
+              rust-analyzer (Rust), gopls (Go), clangd (C/C++)
+  Interface:  python-lsp-jsonrpc for IPC with language servers
+  Features:   textDocument/publishDiagnostics → real-time error stream
+              textDocument/completion → in-context autocomplete
+              textDocument/definition → go-to-definition for context gathering
+              textDocument/references → find all usages for refactor impact
+              workspace/symbol → global symbol search across repo
+
+Tool 2: Compiler / Runtime Suite
+  Languages + Runtimes:
+    Python   → CPython 3.12 + pyenv for version isolation
+    Node/TS  → Node.js 22 LTS + tsx for TypeScript execution
+    Rust     → rustc (stable channel) + cargo
+    Go       → go 1.22 toolchain
+    C/C++    → gcc 14 + clang 18 (both available, clang preferred for errors)
+  Build Isolation: Each compile runs in a tmpfs volume (RAM disk) — no disk I/O
+  Compile Timeout: 60s per compilation pass (SIGKILL on exceed)
+
+Tool 3: Test Runner Interface
+  Python:   pytest v8.x — JSON output mode (--json-report)
+  Node/TS:  jest v29.x — --json flag
+  Rust:     cargo test -- --format json
+  Go:       go test -json ./...
+  Config:   All test runs timeout at 120s
+            Test output parsed to: { passed: int, failed: int,
+                                      errors: [], coverage_pct: float }
+
+Tool 4: AST Parser
+  Library:  tree-sitter (Python bindings) — v0.23+
+  Languages: tree-sitter-python, tree-sitter-javascript, tree-sitter-rust,
+              tree-sitter-go, tree-sitter-c
+  Purpose:  Parse source code into AST for:
+              - Bug localization (node-level error pinpointing)
+              - Refactoring impact analysis (which nodes change)
+              - Code complexity scoring (cyclomatic complexity)
+              - Dependency extraction (import graph building)
+
+Tool 5: Git Interface
+  Library:  GitPython — v3.x
+  Purpose:  Repo operations for patch delivery and code navigation
+  Commands: repo.index.diff() — generate diff between working tree and HEAD
+            repo.git.apply(patch) — apply git diff patch programmatically
+            repo.iter_commits() — history navigation for context gathering
+  Patch Format: Unified diff (git diff format) for all code outputs
+
+Tool 6: AST Cache
+  Type:     In-memory LRU cache (maxsize=50 files)
+  Purpose:  Avoid re-parsing and re-tokenizing same files across tasks
+  Key:      (file_path, file_mtime) — invalidated on file modification
+  Value:    Serialized tree-sitter AST node tree
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    CodingDirective from Kagaya (IPC Bus):
+              { directive_id, type: GENERATE|DEBUG|REFACTOR|ARCHITECT,
+                language: str, spec: str, repo_path: str|null,
+                backtrace: str|null, token_budget: int,
+                rengoku_clearance_token: str }
+
+Produces:   CodeArtifact: { directive_id, files: [{path, content}],
+                             diff_patch: str|null }
+            CompileReport: { success: bool, errors: [], warnings: [] }
+            TestReport: { passed: int, failed: int, errors: [], coverage: float }
+            ArchitecturePlan: { summary: str, components: [], dependencies: [] }
+            ErrorReport: { error_class, file, line, cause, suggested_fix }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-05.1  Code Generation
+  └─ FR-05.1.1  Muichiro SHALL parse the CodingDirective spec through the
+                LSP diagnostics tool BEFORE writing code to detect any
+                existing file conflicts or namespace collisions.
+  └─ FR-05.1.2  Muichiro SHALL generate code using FIM mode when the
+                directive targets an existing file (fill-in partial content),
+                and standard autoregressive mode for new files.
+  └─ FR-05.1.3  Muichiro SHALL run the AST Parser on all generated code to
+                verify syntactic correctness BEFORE passing to the compiler.
+  └─ FR-05.1.4  Muichiro SHALL NOT deliver a CodeArtifact with AST parse
+                errors — the LLM SHALL be re-prompted with the error
+                (max 2 re-prompts before FAILED status returned to Kagaya).
+  └─ FR-05.1.5  Muichiro SHALL include inline comments for all generated
+                functions explaining: purpose, parameters, return type,
+                and side effects.
+
+FR-05.2  Compilation & Testing
+  └─ FR-05.2.1  Muichiro SHALL compile all generated source code in an
+                isolated tmpfs volume using the appropriate compiler.
+  └─ FR-05.2.2  Muichiro SHALL run the full test suite after every
+                successful compilation, capturing JSON test results.
+  └─ FR-05.2.3  Muichiro SHALL attempt automatic patch generation for any
+                test failure: re-invoke LLM with test failure + source context
+                → generate targeted fix patch → re-compile → re-test
+                (max 2 auto-fix iterations).
+  └─ FR-05.2.4  Muichiro SHALL flag any CodeArtifact with test failures
+                as DEGRADED_OUTPUT in the CompletionReceipt when auto-fix
+                iterations are exhausted, still delivering best-effort code.
+
+FR-05.3  Debugging
+  └─ FR-05.3.1  Muichiro SHALL parse the backtrace field using the AST Parser
+                to identify the exact AST node (function, class, line range)
+                corresponding to the failure site.
+  └─ FR-05.3.2  Muichiro SHALL extract only the affected file sections
+                (function ± 20 lines context) for the LLM debugging pass
+                to minimize token consumption.
+  └─ FR-05.3.3  Muichiro SHALL verify the generated fix compiles and passes
+                the full test suite before returning to Kagaya.
+
+FR-05.4  Architecture Planning
+  └─ FR-05.4.1  Muichiro SHALL produce ArchitecturePlan outputs for
+                ARCHITECT-type directives, structured as JSON component
+                graphs not as narrative prose.
+  └─ FR-05.4.2  Muichiro SHALL annotate every component with:
+                coupling_type: TIGHT|LOOSE, scalability_note: str,
+                dependency_list: [], technology_choice: str.
+
+FR-05.5  Codebase Navigation
+  └─ FR-05.5.1  Muichiro SHALL use the AST Cache (LRU) when re-referencing
+                previously parsed files within the same session.
+  └─ FR-05.5.2  Muichiro SHALL use LSP workspace/symbol search rather than
+                reading entire files when it needs to locate a specific
+                function or class in a large repository.
+
+
+================================================================================
+LAYER 3 — AGENT 06: SHINOBU (INTELLIGENCE & RESEARCH AGENT)
+OS Analog: Syscall Interface — User-Space to Kernel-Space Data Fetching
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Dense Retrieval RAG Pipeline + Long-Form Synthesis Transformer
+Retrieval Brain: bi-encoder embedding model for semantic search
+  Base Model:   sentence-transformers/all-mpnet-base-v2
+                OR text-embedding-3-large (OpenAI) for highest accuracy
+  Purpose:      Encode queries and documents into dense vector space for
+                semantic similarity search against the local Vector DB
+  Token Budget: N/A — embedding inference, not token generation
+
+Synthesis Brain: Long-form LLM for research summarization
+  Base Model:   Claude 3 Haiku (fast, cost-efficient for summarization)
+                OR Mistral-7B-Instruct quantized INT4 (local deployment)
+  Fine-Tune:    Summarization datasets:
+                  - Technical documentation synthesis tasks
+                  - Multi-document question-answering (HotpotQA, NaturalQuestions)
+                  - Citation-grounded summarization (citation placement training)
+  Context:      32k token window (enough for 10-15 source documents)
+  Temperature:  0.3 (slight variance to avoid mechanical repetition)
+  Token Budget: 4,000 tokens per synthesis pass
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: Vector DB (Local)
+  Library:    ChromaDB — v0.5+ (embedded mode, no separate server needed)
+              OR Milvus Lite for larger-scale deployments
+  Config:     Collection: hashira_knowledge_base
+              Embedding function: all-mpnet-base-v2
+              Distance metric: cosine similarity
+              Persistence: local disk at /var/hashira/vectordb/
+              Index type: HNSW (Hierarchical Navigable Small World)
+                  ef_construction: 200, M: 16 (accuracy-speed balance)
+  Query:      top_k: 5 (configurable per request)
+              Relevance threshold: 0.72 (below this = insufficient, go web)
+
+Tool 2: SearxNG API Client
+  Library:    httpx (async) — v0.27+
+  Endpoint:   Self-hosted SearxNG instance (localhost:8080)
+  Config:     Rate limit: max 10 queries/minute
+              Engines enabled: google, bing, duckduckgo, arxiv, wikipedia
+              SafeSearch: 1 (moderate filtering)
+              Format: JSON response
+              Timeout per query: 8s
+  Response:   { results: [{ title, url, content_snippet, engine, score }] }
+
+Tool 3: Web Content Fetcher
+  Library:    httpx + trafilatura (v1.x) for content extraction
+  Purpose:    Fetch and extract clean text from URLs returned by SearxNG
+  Config:     trafilatura.fetch_url() for raw HTML
+              trafilatura.extract() for cleaned body text
+              Max content per page: 50,000 characters (truncate beyond)
+              User-Agent: randomized pool to avoid blocking
+              Respect robots.txt: YES
+
+Tool 4: Markdown Text Extractor
+  Purpose:    Parse local documentation files into clean text chunks
+  Libraries:
+    HTML:     BeautifulSoup4 — remove nav/header/footer, extract article body
+    PDF:      pdfplumber — v0.11+ (text extraction with layout awareness)
+    DOCX:     python-docx — v1.x (paragraph + table text extraction)
+    MD:       markdown-it-py — parse to AST, extract text nodes
+  Chunking:   Split documents into 512-token overlapping chunks (128 overlap)
+              Each chunk stored in Vector DB with: source_path, page, chunk_id
+
+Tool 5: Query Result Cache
+  Library:    cachetools — TTLCache
+  Config:     maxsize: 200 entries
+              TTL: 600 seconds (10 minutes)
+              Key: SHA-256(query_string + collection_name)
+              Purpose: Avoid redundant Vector DB queries for identical terms
+                       within a session
+
+Tool 6: Citation Tracker
+  Type:       In-memory dict per research task
+  Schema:     { claim_hash: { source_title, source_url|path, page|line,
+                               confidence: HIGH|MEDIUM|LOW } }
+  Purpose:    Every synthesized claim MUST be traceable to a source entry
+              in the Citation Tracker before being included in output
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    ResearchDirective from Kagaya (IPC Bus):
+              { directive_id, query: str, doc_paths: [str]|null,
+                search_terms: [str]|null, max_sources: int,
+                output_format: SUMMARY|CONTEXT_PROFILE|CITATION_LIST,
+                rengoku_clearance_token: str }
+
+Produces:   ResearchOutput: { directive_id, summary: str (markdown),
+                               citations: [{claim, source, confidence}],
+                               context_profile: str|null,
+                               conflicts_detected: bool,
+                               conflicting_claims: [str]|null }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-06.1  Retrieval Priority & Cache
+  └─ FR-06.1.1  Shinobu SHALL check the Query Result Cache FIRST for every
+                incoming query term before any Vector DB or web query.
+  └─ FR-06.1.2  Shinobu SHALL query the local Vector DB (ChromaDB) BEFORE
+                issuing any external SearxNG web query.
+  └─ FR-06.1.3  Shinobu SHALL proceed to SearxNG ONLY if Vector DB top_k
+                results have a maximum cosine score below 0.72.
+  └─ FR-06.1.4  Shinobu SHALL rate-limit SearxNG queries to 10/minute and
+                queue excess requests rather than dropping them.
+  └─ FR-06.1.5  Shinobu SHALL store all newly retrieved web content chunks
+                into the Vector DB for future local cache hits.
+
+FR-06.2  Document Ingestion
+  └─ FR-06.2.1  Shinobu SHALL process all doc_paths using the appropriate
+                Markdown Text Extractor tool based on file extension.
+  └─ FR-06.2.2  Shinobu SHALL chunk extracted document content into 512-token
+                overlapping segments with 128-token overlap before indexing.
+  └─ FR-06.2.3  Shinobu SHALL store each chunk with metadata:
+                { source_path, chunk_id, page_num, char_offset } in ChromaDB.
+
+FR-06.3  Synthesis
+  └─ FR-06.3.1  Shinobu SHALL inject only the top_k most relevant chunks
+                into the Synthesis Brain context — NOT full documents.
+  └─ FR-06.3.2  Shinobu SHALL require every claim in the synthesized output
+                to have a corresponding Citation Tracker entry before
+                including it. Claims without traceable sources are DROPPED.
+  └─ FR-06.3.3  Shinobu SHALL detect conflicting claims (same topic, opposing
+                facts across sources) using semantic similarity comparison and
+                flag them explicitly in the ResearchOutput.
+  └─ FR-06.3.4  Shinobu SHALL score each claim's confidence:
+                  HIGH   → 3+ corroborating sources, cosine score > 0.85
+                  MEDIUM → 2 sources, cosine score 0.72-0.85
+                  LOW    → 1 source or cosine score at threshold
+  └─ FR-06.3.5  Shinobu SHALL compress the final markdown summary to the
+                minimum required length — no padding, no filler context —
+                before returning to Kagaya (token conservation).
+
+
+================================================================================
+LAYER 2 — AGENT 07: OBANAI (FILE & DATA AGENT)
+OS Analog: Linux Kernel VFS & Storage Subsystems
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Embeddings Pipeline + Semantic Classification Model
+                NO generative LLM at this layer (deterministic file ops only)
+Embedding Model: sentence-transformers/all-MiniLM-L6-v2 (fast, lightweight)
+                  Purpose: semantic file content indexing for fuzzy search
+                  Inference: CPU-only, quantized INT8
+                  Max tokens per chunk: 256 (short — file metadata + content)
+Classification:  Lightweight MLP classifier trained on file type + path →
+                  storage tier mapping (hot/warm/cold storage routing)
+                  Input features: file extension, size, last_access_time,
+                                  content_type_embedding
+LLM Policy:     Obanai has NO generative LLM. If a natural language summary
+                of file content is needed, Shinobu is delegated via Kagaya.
+Token Budget:   N/A — no LLM inference at this layer
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: OS Filesystem Engine
+  Libraries:  Python pathlib, shutil, os (stdlib)
+  Operations: read, write (atomic), append, delete, move, copy, mkdir, rmdir,
+              chmod, chown, symlink, readlink, stat, listdir
+  Atomic Write: write to temp file (path + .tmp) → os.replace() (POSIX atomic)
+  Config:     All paths validated against allowed_roots config before operation
+              /etc, /sys, /proc, /dev, /boot blocked unconditionally
+
+Tool 2: Ripgrep Wrapper
+  Binary:     rg (ripgrep) — v14+
+  Interface:  Python subprocess with JSON output flag (--json)
+  Modes:      Pattern search:   rg --json <pattern> <path>
+              Glob filter:      rg --glob <glob> <pattern> <path>
+              Case insensitive: rg -i (configurable)
+              Type filter:      rg -t py / -t js / -t rs etc.
+  Output:     Parsed rg JSON into { file_path, line_num, column, match_text }
+  Performance: Ripgrep uses multiple threads by default — capped at 4 threads
+
+Tool 3: Semantic File Index
+  Library:    ChromaDB (separate collection: hashira_file_index)
+  Embedding:  all-MiniLM-L6-v2 (file content chunks, 256 tokens each)
+  Metadata:   { file_path, file_type, size_bytes, last_modified, chunk_id }
+  Update:     inotify (watchdog Python library) triggers incremental re-index
+              on file CREATE, MODIFY, DELETE events
+  Query:      semantic_search(query_text, top_k=10) → ranked file list
+
+Tool 4: File Watcher (inotify)
+  Library:    watchdog — v4.x
+  Config:     Watches /var/hashira/workspace/ recursively
+              Events: FileCreatedEvent, FileModifiedEvent, FileDeletedEvent
+              On event: update Semantic File Index (add/update/remove chunk)
+
+Tool 5: Tar/Zstd Compression Utility
+  Libraries:  tarfile (stdlib) + python-zstandard — v0.22+
+  Compression levels: 1 (fastest) → 19 (max, default: 3 for backups)
+  Streaming:  Use streaming API for large directories — no full load into RAM
+  Integrity:  Generate SHA-256 checksum of archive after creation
+  Verify:     Re-read archive and compare checksum before reporting success
+
+Tool 6: Backup Scheduler Interface
+  Type:       Receives BackupPolicy objects from Zenitsu (IPC Bus)
+  Policy:     { target_path, destination_path, schedule_cron,
+                compression_level, retention_count, verify: bool }
+  Execution:  On schedule trigger → compress → verify → purge old backups
+              (keep latest N backups per retention_count)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    FileDirective from Kagaya (IPC Bus):
+              { directive_id, operation: READ|WRITE|DELETE|MOVE|COPY|SEARCH|
+                INDEX|COMPRESS|BACKUP, path: str, destination: str|null,
+                content: str|null, pattern: str|null,
+                rengoku_clearance_token: str }
+            BackupPolicy from Zenitsu (IPC Bus)
+
+Produces:   OperationReceipt: { directive_id, operation, path, result: OK|FAIL,
+                                  checksum_sha256: str|null, bytes_affected: int }
+            SearchResults: [{ file_path, line_num, match_text, relevance_score }]
+            BackupReceipt: { archive_path, checksum, size_bytes, duration_ms,
+                             integrity_verified: bool }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-07.1  File Operation Safety
+  └─ FR-07.1.1  Obanai SHALL validate every path argument against the
+                allowed_roots allowlist AND check for directory traversal
+                sequences (../, %2F, null bytes) before any operation.
+  └─ FR-07.1.2  Obanai SHALL forward any suspicious path to Rengoku as a
+                SecurityCheckRequest before proceeding.
+  └─ FR-07.1.3  Obanai SHALL perform all WRITE operations atomically:
+                write to <path>.hashira_tmp → verify write → os.replace().
+  └─ FR-07.1.4  Obanai SHALL generate and return a SHA-256 checksum for
+                every WRITE, COPY, and COMPRESS operation.
+  └─ FR-07.1.5  Obanai SHALL NEVER delete a file without first confirming
+                a backup copy exists, unless the directive explicitly sets
+                force_delete: true (still requires Rengoku CRITICAL clearance).
+
+FR-07.2  Search Operations
+  └─ FR-07.2.1  Obanai SHALL use ripgrep for pattern-based text searches
+                and the Semantic File Index for natural language fuzzy searches.
+  └─ FR-07.2.2  Obanai SHALL route pattern searches (regex/glob) to ripgrep
+                and semantic searches (natural language query) to ChromaDB.
+  └─ FR-07.2.3  Obanai SHALL return search results ranked by relevance score
+                with a hard cap of 50 results per search to prevent output bloat.
+
+FR-07.3  Backup & Integrity
+  └─ FR-07.3.1  Obanai SHALL verify archive integrity via SHA-256 comparison
+                immediately after every compression operation.
+  └─ FR-07.3.2  Obanai SHALL report any checksum mismatch as a CRITICAL
+                failure to Kagaya immediately.
+  └─ FR-07.3.3  Obanai SHALL use streaming Zstd compression for any directory
+                exceeding 500MB to avoid loading into RAM.
+
+FR-07.4  Semantic Index Maintenance
+  └─ FR-07.4.1  Obanai SHALL process inotify file system events within 5s
+                of occurrence and update the semantic index incrementally.
+  └─ FR-07.4.2  Obanai SHALL remove orphaned index entries for deleted files
+                immediately upon FileDeletedEvent receipt.
+
+
+================================================================================
+LAYER 6 — AGENT 08: ZENITSU (NOTIFICATION & ASSISTANT AGENT)
+OS Analog: cron / systemd-timers / Notification Buses — System Daemons
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Lightweight Event-Driven Temporal Transformer
+Base Model:     DistilBERT-class fine-tuned for event classification
+                (NOT a generative LLM — classification + pattern recognition only)
+Fine-Tune:      Trained on:
+                  - Syslog / journald event classification datasets
+                  - Cron expression parsing and validation corpus
+                  - System alert severity classification (INFO/WARN/ERROR/CRIT)
+                  - Signal interception pattern → notification action mappings
+Inference Mode: Single-pass event classification (not autoregressive)
+                Input: event payload (max 512 tokens)
+                Output: { event_class, severity, notification_channels: [],
+                           dedup_key: str }
+Token Budget:   512 tokens per classification (tiny and fast)
+LLM Policy:     Zenitsu has NO generative LLM. Notification content is templated.
+                If a natural language summary of a telemetry report is needed,
+                delegation goes to Kagaya.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: D-Bus Desktop Notification Interface
+  Library:    dbus-python OR jeepney (pure-Python D-Bus) — v0.8+
+  Interface:  org.freedesktop.Notifications.Notify
+  Config:     App name: "Hashira-OS"
+              Icons mapped per severity: info/warning/error/critical
+              Urgency: low (INFO), normal (WARNING), critical (ERROR/CRIT)
+              Timeout: INFO=5s, WARNING=15s, ERROR=0 (persistent until dismissed)
+
+Tool 2: Crontab / systemd-Timer Manager
+  Library:    python-crontab — v3.x (crontab management)
+              systemd Python bindings (via systemctl wrapper for timer units)
+  Cron Ops:   CronTab.new(command, comment) → add entry
+              CronTab.remove_all(comment=<tag>) → purge task timers
+              CronTab.render() → validate before write
+  Cron Validation: croniter (v2.x) — validate expression + compute next_run
+  Systemd:    Generate .timer + .service unit pair for persistent schedules
+              Units stored in /etc/systemd/system/hashira-<task_id>.{timer,service}
+
+Tool 3: SMTP Publisher
+  Library:    Python smtplib (stdlib) + email.mime
+  Config:     SMTP credentials fetched from secrets vault at send time
+              TLS: STARTTLS required (no plaintext SMTP)
+              Rate limit: max 20 emails/hour per recipient
+              Template engine: Jinja2 (v3.x) for notification body rendering
+
+Tool 4: Webhook Publisher
+  Library:    httpx (async) — v0.27+
+  Config:     Webhook URLs loaded from notification_targets.yaml
+              Retry on failure: 3 attempts, exponential backoff (2s, 4s, 8s)
+              Payload: { event_id, severity, summary, timestamp, agent_id }
+              HMAC-SHA256 signing of payload (receiver can verify)
+
+Tool 5: Deduplication Engine
+  Type:       In-memory TTLCache (cachetools)
+  Config:     TTL: 30 seconds (configurable)
+              Key: dedup_key (SHA-256 of event_type + source_agent + summary)
+              Purpose: suppress duplicate notifications within TTL window
+
+Tool 6: Schedule Registry
+  Type:       SQLite DB (in-process, /var/hashira/schedules.db)
+  Schema:     schedules( id TEXT PK, owner_agent TEXT, cron_expr TEXT,
+                          command TEXT, next_run_ts INT, last_run_ts INT,
+                          last_result TEXT, enabled INT )
+  Interface:  CRUD via Python sqlite3 (stdlib)
+  Purpose:    Persistent record of all active timers with run history
+
+Tool 7: Telemetry Aggregator
+  Type:       In-process metrics collector
+  Metrics:    Per-agent: task_count, error_count, avg_latency_ms,
+                          token_usage, memory_mb, last_seen_ts
+  Export:     JSON telemetry report generated every 300s (5 minutes)
+              Delivered to Kagaya via IPC Bus
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    SystemEvent from any agent (IPC Bus — subscribe to all event topics):
+              { event_id, source_agent, event_type, severity, summary, timestamp }
+            ScheduleDirective from Kagaya:
+              { directive_id, cron_expr, command, owner_agent, enabled: bool }
+            TelemetryRequest from Kagaya (pull-mode fallback)
+
+Produces:   D-Bus notifications (local desktop)
+            SMTP emails / Webhook POSTs (remote alerts)
+            TelemetryReport: { timestamp, agents: { agent_id: metrics } }
+            ScheduleReceipt: { directive_id, schedule_id, next_run_ts, valid: bool }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-08.1  Event Classification & Routing
+  └─ FR-08.1.1  Zenitsu SHALL classify every incoming SystemEvent using the
+                DistilBERT classifier into: INFO | WARNING | ERROR | CRITICAL.
+  └─ FR-08.1.2  Zenitsu SHALL check the Deduplication Engine before routing
+                any notification — suppress if dedup_key hit within TTL.
+  └─ FR-08.1.3  Zenitsu SHALL route notifications by severity:
+                  INFO     → no notification (logged to telemetry only)
+                  WARNING  → D-Bus desktop notification
+                  ERROR    → D-Bus + Webhook POST
+                  CRITICAL → D-Bus + Webhook POST + SMTP email (all channels)
+  └─ FR-08.1.4  Zenitsu SHALL deliver CRITICAL notifications within 2s of
+                event receipt regardless of queue state.
+
+FR-08.2  Schedule Management
+  └─ FR-08.2.1  Zenitsu SHALL validate every cron_expr using croniter before
+                writing to the Schedule Registry or creating systemd units.
+  └─ FR-08.2.2  Zenitsu SHALL persist validated schedules to the SQLite
+                Schedule Registry immediately upon ScheduleDirective receipt.
+  └─ FR-08.2.3  Zenitsu SHALL update last_run_ts and last_result in the
+                Schedule Registry after every timer execution.
+  └─ FR-08.2.4  Zenitsu SHALL return a ScheduleReceipt with next_run_ts
+                (computed via croniter) to Kagaya upon every schedule addition.
+
+FR-08.3  Telemetry Reporting
+  └─ FR-08.3.1  Zenitsu SHALL produce a TelemetryReport every 300 seconds
+                and push to Kagaya unprompted (push-mode telemetry).
+  └─ FR-08.3.2  Zenitsu SHALL include in TelemetryReport for each agent:
+                task_count, error_count, avg_latency_ms, token_usage,
+                current_memory_mb, and last_heartbeat_ts.
+  └─ FR-08.3.3  Zenitsu SHALL respond to TelemetryRequest pull messages from
+                Kagaya within 500ms with a fresh (not cached) report.
+
+
+================================================================================
+LAYER 9 — AGENT 09: TENGEN (MULTIMEDIA AGENT)
+OS Analog: Wayland/X11 Display Servers & Media Frameworks — GUI Layer
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAIN SPEC
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model Type:     Multimodal — Diffusion Model (generative) + Vision Transformer
+                (analytical)
+
+Generative Brain (Asset Generation):
+  Base Model:   Stable Diffusion XL (SDXL) — local inference via diffusers
+                OR FLUX.1-schnell (faster, higher quality, local deployment)
+  Fine-Tune:    LoRA adapters for:
+                  - UI/UX mockup generation (trained on Figma screenshot dataset)
+                  - Technical diagram generation (flowcharts, architecture art)
+                  - Brand asset consistency (configurable style LoRA per project)
+  Inference:    CUDA GPU preferred, CPU fallback (significantly slower)
+                Batch size: 1 (sequential to avoid VRAM exhaustion)
+  Token Budget: N/A — diffusion steps, not tokens (default: 20 steps DDIM)
+
+Vision Transformer Brain (Media Analysis):
+  Base Model:   CLIP ViT-L/14 (vision encoder for content understanding)
+  Purpose:      Analyze input images/video frames for:
+                  - Content safety classification (NSFW detection)
+                  - Layout analysis for mockup alignment validation
+                  - Quality scoring of generated assets
+  Inference:    CPU (lightweight classification)
+
+LLM Policy:     Tengen has NO generative text LLM. If layout text content
+                is needed (labels, copy), the text is provided in the directive
+                from Kagaya — Tengen does not generate text content itself.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tool 1: FFmpeg Interface
+  Binary:     ffmpeg — v7.x (latest stable)
+  Interface:  ffmpeg-python (Python bindings) — v0.2+
+  Operations:
+    Transcode: ffmpeg.input(src).output(dst, vcodec, acodec, bitrate)
+    Extract:   ffmpeg.input(src, ss=timestamp).output(frame.png, vframes=1)
+    Concat:    ffmpeg.concat(*streams)
+    Metadata:  ffprobe.probe(src) → duration, codec, resolution, bitrate
+  Config:     Hardware accel: -hwaccel cuda (if GPU available), else libx264
+              Threading: -threads 0 (let ffmpeg auto-select based on CPU cores)
+              Streaming mode: pipe output via ffmpeg.run_async() for large files
+              Max input size: 10GB (reject above with SIZE_EXCEEDED error)
+
+Tool 2: ImageMagick Core
+  Binary:     magick (ImageMagick 7.x)
+  Interface:  wand (Python bindings for ImageMagick) — v0.6+
+  Operations:
+    Resize:   image.resize(width, height) with lanczos filter
+    Crop:     image.crop(left, top, right, bottom)
+    Compress: image.compression_quality = N (1-100)
+    Convert:  image.format = 'PNG'|'WEBP'|'JPEG'|'GIF'
+    Composite: image.composite(overlay, left, top, operator)
+    Annotate: image.annotate(text, gravity, fill_color, font, font_size)
+    Watermark: composite with opacity layer
+  Config:     Memory limit: 512MB (MAGICK_MEMORY_LIMIT env var)
+              Disk limit:   2GB (MAGICK_DISK_LIMIT env var)
+              Timeout:      60s per operation
+
+Tool 3: Diffusers Pipeline (SDXL / FLUX)
+  Library:    diffusers (HuggingFace) — v0.29+
+              torch — v2.3+ with CUDA 12.x
+  Config:     Pipeline: StableDiffusionXLPipeline (or FluxPipeline)
+              Scheduler: DPMSolverMultistepScheduler (fast convergence)
+              Steps: 20 (default), 30 (high quality mode)
+              Guidance scale: 7.5
+              Resolution: 1024x1024 (SDXL native)
+              Safety checker: ENABLED — blocks NSFW output via CLIP filter
+              LoRA loading: pipeline.load_lora_weights(lora_path) per task
+              VRAM management: enable_model_cpu_offload() if VRAM < 10GB
+
+Tool 4: CLIP Safety & Quality Scorer
+  Library:    transformers (HuggingFace) + openai/clip-vit-large-patch14
+  Purpose:
+    Safety:   NSFW classification on all generated and input images
+              Threshold: if nsfw_score > 0.1 → REJECT + log to Rengoku
+    Quality:  CLIP score between prompt and generated image
+              Threshold: clip_score < 0.25 → flag as LOW_QUALITY
+              Re-generate if LOW_QUALITY and attempts < 3
+
+Tool 5: Wayland / X11 Canvas Renderer
+  Library:    Pyglet (v2.x) OR pygame (v2.x) for headless rendering
+              cairo-python (pycairo) — v1.26+ for 2D canvas operations
+  Config:     Headless mode: DISPLAY=:99 Xvfb (Virtual Framebuffer)
+              Output: render to off-screen buffer → export PNG/WebM
+              Canvas resolution: configurable per directive (default 1920x1080)
+  Use case:   GUI mockup rendering, vector diagram to bitmap conversion
+
+Tool 6: Media Batch Processor
+  Type:       Python asyncio task pool
+  Config:     Max concurrent media tasks: 4 (respects CPU/GPU limits)
+              Queue: asyncio.Queue with backpressure signaling to Kagaya
+              Progress: emit MediaProgressEvent to IPC Bus every 10% completion
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERFACES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Accepts:    MediaDirective from Kagaya (IPC Bus):
+              { directive_id, type: GENERATE|TRANSCODE|TRANSFORM|RENDER|BATCH,
+                input_paths: [str]|null,
+                generation_prompt: str|null,
+                output_format: PNG|WEBP|JPEG|MP4|WEBM|SVG,
+                params: { width, height, quality, steps, lora_id, ... },
+                rengoku_clearance_token: str }
+
+Produces:   MediaArtifact: { directive_id, output_paths: [str],
+                              format, resolution, size_bytes,
+                              clip_score: float|null,
+                              quality_flag: OK|LOW_QUALITY }
+            MediaProgressEvent: { directive_id, pct_complete, current_step }
+            ErrorReport: { directive_id, error_type, details }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUNCTIONAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FR-09.1  Asset Generation
+  └─ FR-09.1.1  Tengen SHALL run CLIP Safety Scorer on the generation_prompt
+                BEFORE invoking the diffusion pipeline. Prompts triggering
+                NSFW score > 0.1 SHALL be rejected with an error — no
+                generation attempt is made.
+  └─ FR-09.1.2  Tengen SHALL load the appropriate LoRA weights for the task
+                category (ui_mockup / diagram / photo_realistic) based on
+                the directive's lora_id field.
+  └─ FR-09.1.3  Tengen SHALL run CLIP quality scoring on every generated image
+                and flag LOW_QUALITY results, attempting regeneration up to
+                3 times before returning best-effort output.
+  └─ FR-09.1.4  Tengen SHALL disable CPU offloading when VRAM >= 10GB for
+                maximum generation speed and enable it otherwise to prevent
+                OOM errors.
+
+FR-09.2  Media Transcoding & Transformation
+  └─ FR-09.2.1  Tengen SHALL use ffmpeg run_async() streaming for all video
+                files exceeding 500MB to avoid loading into RAM.
+  └─ FR-09.2.2  Tengen SHALL emit MediaProgressEvent every 10% of completion
+                for long-running transcode/transform operations.
+  └─ FR-09.2.3  Tengen SHALL reject input media files exceeding 10GB with a
+                SIZE_EXCEEDED error before any processing begins.
+  └─ FR-09.2.4  Tengen SHALL enforce ImageMagick memory and disk limits
+                via environment variables on every wand operation.
+
+FR-09.3  GUI Rendering
+  └─ FR-09.3.1  Tengen SHALL launch a virtual X11 framebuffer (Xvfb) for all
+                headless GUI rendering sessions.
+  └─ FR-09.3.2  Tengen SHALL export all rendered GUI sessions to PNG or WebM
+                immediately after rendering is complete.
+  └─ FR-09.3.3  Tengen SHALL terminate the Xvfb session and release the
+                DISPLAY variable within 5s of export completion.
+  └─ FR-09.3.4  Tengen SHALL NOT persist GUI sessions, window state, or
+                in-memory canvas buffers after artifact export is delivered.
+
+FR-09.4  Safety & Cleanup
+  └─ FR-09.4.1  Tengen SHALL run CLIP Safety Scorer on ALL output artifacts
+                (generated images, transformed images, video keyframes)
+                before delivering to Kagaya. Any failed safety check →
+                artifact destroyed, error reported, Rengoku notified.
+  └─ FR-09.4.2  Tengen SHALL release all CUDA memory (torch.cuda.empty_cache())
+                after every diffusion pipeline call.
+  └─ FR-09.4.3  Tengen SHALL delete all intermediate working files (tmp frames,
+                partial encodes) immediately after final output is confirmed.
+
+
+================================================================================
+APPENDIX A — AGENT BRAIN SUMMARY TABLE
+================================================================================
+
+Agent     Layer  Brain Type                      LLM?  Temp  Token Budget
+--------  -----  ------------------------------  ----  ----  ------------
+Kagaya      5    LLM (GPT-4/Opus class, ToT)     YES   0.2   12,000
+Inosuke     5    VLA (SeeAct/WebAgent) + RL       YES   0.1    3,000/iter
+Giyu        8    Code LLM (DeepSeek quantized)    LAZY  0.0      800
+Rengoku     7    Rule Engine + DistilBERT cls     LAZY  N/A      500
+Muichiro    4    Code LLM (DeepSeek-Coder-V2)     YES   0.15   8,000
+Shinobu     3    bi-encoder RAG + Haiku/Mistral   YES   0.3    4,000
+Obanai      2    Embedding MLP (no LLM)           NO    N/A      N/A
+Zenitsu     6    DistilBERT classifier (no gen)   NO    N/A      512
+Tengen      9    SDXL Diffusion + CLIP ViT        NO*   N/A    steps=20
+
+LAZY = LLM invoked only as fallback (primary path is deterministic)
+NO*  = Diffusion model (not token-based)
+
+================================================================================
+APPENDIX B — TOOL STACK SUMMARY TABLE
+================================================================================
+
+Agent     Primary Tools
+--------  ------------------------------------------------------------------
+Kagaya    NetworkX DAG, Redis State Matrix, systemctl, ZeroMQ, Jinja2
+
+Inosuke   Playwright, Ansible-Core, Auto-Recovery Loop, Env Diff Reporter
+
+Giyu      pty/pexpect, psutil, Ripgrep, Command Rule Engine, ZeroMQ PUSH
+
+Rengoku   Rule Engine YAML, bcc eBPF, bubblewrap/Docker, python-nftables,
+          HMAC token issuer, Append-only hash-chain audit log
+
+Muichiro  tree-sitter AST, LSP (pylsp/clangd/rust-analyzer), pytest/jest,
+          GitPython, DeepSeek compiler suite, AST LRU cache
+
+Shinobu   ChromaDB, all-mpnet-base-v2, SearxNG, httpx+trafilatura,
+          BeautifulSoup4/pdfplumber/python-docx, TTLCache, Citation Tracker
+Obanai    pathlib/shutil (atomic write), Ripgrep, ChromaDB (file index),
+          watchdog inotify, python-zstandard, SQLite schedule store
+
+Zenitsu   dbus-python, python-crontab, croniter, smtplib+Jinja2, httpx
+          webhooks, TTL dedup cache, SQLite schedule registry, metrics agg
+          
+Tengen    FFmpeg+ffmpeg-python, ImageMagick+wand, diffusers (SDXL/FLUX),
+          CLIP ViT-L/14, pycairo/Xvfb, asyncio batch pool
+
+================================================================================
+END OF DOCUMENT
+Hashira-OS Agent SRS v2.0.0 — Full Per-Agent Engineering Specification
+================================================================================

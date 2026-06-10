@@ -100,10 +100,17 @@ class RAGaaSApiClient {
     return this.request('/v1/namespaces');
   }
 
-  async createNamespace(name, config = {}) {
+  async createNamespace(name, data = {}) {
     return this.request('/v1/namespaces', {
       method: 'POST',
-      body: JSON.stringify({ name, ...config }),
+      body: JSON.stringify({ name, ...data }),
+    });
+  }
+
+  async updateNamespace(name, data = {}) {
+    return this.request(`/v1/namespaces/${name}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   }
 

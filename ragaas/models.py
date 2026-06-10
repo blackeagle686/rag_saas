@@ -20,9 +20,10 @@ class TenantManager(BaseUserManager):
 
 class Tenant(AbstractBaseUser, PermissionsMixin):
     PLAN_CHOICES = [
-        ('starter', 'Starter'),
-        ('growth', 'Growth'),
-        ('scale', 'Scale'),
+        ('free', 'Free'),
+        ('start', 'Start'),
+        ('mid', 'Mid'),
+        ('prime', 'Prime'),
         ('enterprise', 'Enterprise'),
     ]
     STATUS_CHOICES = [
@@ -34,8 +35,18 @@ class Tenant(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.TextField()
     email = models.EmailField(unique=True, max_length=320, db_index=True)
-    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default='starter')
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default='free')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    
+    # Feature Flags
+    can_deploy_api = models.BooleanField(default=False)
+    allowed_vector_dbs = models.JSONField(default=list, blank=True)
+    allowed_rag_types = models.JSONField(default=list, blank=True)
+    
+    # Stripe Integration
+    stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
+    billing_cycle_reset = models.DateTimeField(null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -62,6 +73,9 @@ class Namespace(models.Model):
     name = models.CharField(max_length=64, db_index=True)
     doc_count = models.IntegerField(default=0)
     token_count = models.BigIntegerField(default=0)
+    
+    rag_type = models.CharField(max_length=20, default='standard')
+    config = models.JSONField(default=dict, blank=True)
     
     llm_provider = models.CharField(max_length=50, default='openai')
     llm_model = models.CharField(max_length=100, default='gpt-4o-mini')
