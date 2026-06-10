@@ -18,7 +18,52 @@ def process_document(document_id):
             content_bytes = f.read()
             
         text = ""
-        if doc.file_type in ('txt', 'md'):
+        if doc.file_type == 'db':
+            import json
+            import sqlite3
+            with open(doc.s3_key, 'r') as f:
+                db_config = json.load(f)
+                
+            db_type = db_config.get('type')
+            query = db_config.get('query')
+            rows = []
+            
+            if db_type == 'postgresql':
+                import psycopg2
+                conn = psycopg2.connect(
+                    host=db_config.get('host'),
+                    port=db_config.get('port') or 5432,
+                    user=db_config.get('user'),
+                    password=db_config.get('password'),
+                    dbname=db_config.get('database')
+                )
+                cur = conn.cursor()
+                cur.execute(query)
+                rows = cur.fetchall()
+                conn.close()
+            elif db_type == 'mysql':
+                import pymysql
+                conn = pymysql.connect(
+                    host=db_config.get('host'),
+                    port=int(db_config.get('port') or 3306),
+                    user=db_config.get('user'),
+                    password=db_config.get('password'),
+                    database=db_config.get('database')
+                )
+                cur = conn.cursor()
+                cur.execute(query)
+                rows = cur.fetchall()
+                conn.close()
+            elif db_type == 'sqlite':
+                conn = sqlite3.connect(db_config.get('database'))
+                cur = conn.cursor()
+                cur.execute(query)
+                rows = cur.fetchall()
+                conn.close()
+                
+            text = "\n\n".join([str(item) for row in rows for item in row if item])
+            
+        elif doc.file_type in ('txt', 'md'):
             text = content_bytes.decode('utf-8', errors='ignore')
         elif doc.file_type == 'pdf':
             import pdfplumber
