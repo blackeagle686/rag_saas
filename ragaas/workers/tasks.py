@@ -108,38 +108,47 @@ def process_document(document_id):
             base_url=ns.embedding_base_url or ns.tenant.embedding_base_url
         )
         
-        import chromadb
+        from qdrant_client import QdrantClient
+        from qdrant_client.http import models as qdrant_models
         import os
-        chroma_client = chromadb.PersistentClient(path=os.path.join(settings.BASE_DIR, "chroma_db"))
-        collection_name = f"tenant_{doc.namespace.tenant.id.hex}"
         
-        collection = chroma_client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"}
-        )
+        qdrant_url = getattr(settings, 'QDRANT_URL', 'http://localhost:6333')
+        qdrant_client = QdrantClient(url=qdrant_url)
+        collection_name = "ragaas_vectors"
         
-        # Optimization: Use embed_batch for the entire list of chunks at once
-        vectors = embedder.embed_batch(chunks) if hasattr(embedder, 'embed_batch') else [embedder.embed_query(c) for c in chunks]
+        try:
+            qdrant_client.get_collection(collection_name)
+        except Exception:
+            qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config=qdrant_models.VectorParams(
+                    size=len(vectors[0]),
+                    distance=qdrant_models.Distance.COSINE
+                )
+            )
         
-        ids = []
-        metadatas = []
-        
+        points = []
         for i, chunk in enumerate(chunks):
-            ids.append(uuid.uuid4().hex)
-            metadatas.append({
-                "document_id": str(doc.id),
-                "namespace_id": str(ns.id),
-                "filename": doc.filename,
-                "chunk_index": i
-            })
+            points.append(
+                qdrant_models.PointStruct(
+                    id=uuid.uuid4().hex,
+                    vector=vectors[i],
+                    payload={
+                        "document_id": str(doc.id),
+                        "namespace_id": str(ns.id),
+                        "tenant_id": str(ns.tenant.id),
+                        "filename": doc.filename,
+                        "text": chunk,
+                        "chunk_index": i
+                    }
+                )
+            )
             
         batch_size = 100
-        for i in range(0, len(chunks), batch_size):
-            collection.add(
-                ids=ids[i:i + batch_size],
-                embeddings=vectors[i:i + batch_size],
-                documents=chunks[i:i + batch_size],
-                metadatas=metadatas[i:i + batch_size]
+        for i in range(0, len(points), batch_size):
+            qdrant_client.upsert(
+                collection_name=collection_name,
+                points=points[i:i + batch_size]
             )
             
         doc.status = 'ready'
@@ -183,12 +192,27 @@ def delete_namespace_data_task(tenant_id, namespace_name):
         ns = Namespace.objects.filter(tenant_id=tenant_id, name=namespace_name).first()
         if not ns: return
         
-        # Clean ChromaDB vectors
+        # Clean Qdrant vectors
         try:
-            chroma_client = chromadb.PersistentClient(path=os.path.join(settings.BASE_DIR, "chroma_db"))
-            collection_name = f"tenant_{tenant_id}"
-            collection = chroma_client.get_collection(name=collection_name)
-            collection.delete(where={"namespace_id": str(ns.id)})
+            from qdrant_client import QdrantClient
+            from qdrant_client.http import models as qdrant_models
+            
+            qdrant_url = getattr(settings, 'QDRANT_URL', 'http://localhost:6333')
+            qdrant_client = QdrantClient(url=qdrant_url)
+            
+            qdrant_client.delete(
+                collection_name="ragaas_vectors",
+                points_selector=qdrant_models.FilterSelector(
+                    filter=qdrant_models.Filter(
+                        must=[
+                            qdrant_models.FieldCondition(
+                                key="namespace_id",
+                                match=qdrant_models.MatchValue(value=str(ns.id))
+                            )
+                        ]
+                    )
+                )
+            )
         except Exception:
             pass # Collection might not exist or be empty
             
