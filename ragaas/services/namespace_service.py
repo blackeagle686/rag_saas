@@ -62,6 +62,7 @@ class NamespaceService:
     def delete_namespace(tenant, name):
         ns = Namespace.objects.filter(tenant=tenant, name=name).first()
         if ns:
-            ns.delete()
+            from ragaas.workers.tasks import delete_namespace_data_task
+            delete_namespace_data_task.delay(tenant_id=str(tenant.id), namespace_name=name)
             return True
         return False
