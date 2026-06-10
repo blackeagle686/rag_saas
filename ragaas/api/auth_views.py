@@ -2,6 +2,7 @@ from rest_framework import generics, status, views
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db import transaction
 from django.contrib.auth import authenticate
 from django.conf import settings
 from ragaas.api.serializers.core import RegisterSerializer, TenantSettingsSerializer, TenantSettingsUpdateSerializer
@@ -12,6 +13,7 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -45,6 +47,7 @@ class TenantSettingsView(views.APIView):
     permission_classes = (IsAuthenticated,)
     def get(self, request):
         return Response(TenantSettingsSerializer(request.user).data)
+    @transaction.atomic
     def patch(self, request):
         serializer = TenantSettingsUpdateSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
