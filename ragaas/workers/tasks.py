@@ -78,8 +78,10 @@ def process_document(document_id):
             )
             
         points = []
-        for i, chunk in enumerate(chunks):
-            vector = embedder.embed_query(chunk)
+        # Optimization: Use embed_batch for the entire list of chunks at once
+        vectors = embedder.embed_batch(chunks) if hasattr(embedder, 'embed_batch') else [embedder.embed_query(c) for c in chunks]
+        
+        for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
             points.append(
                 qdrant_models.PointStruct(
                     id=uuid.uuid4().hex,
