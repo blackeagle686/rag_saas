@@ -26,12 +26,19 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         refresh = RefreshToken.for_user(user)
-        return Response({
-            "access_token": str(refresh.access_token),
-            "refresh_token": str(refresh),
-            "token_type": "bearer",
+        response = Response({
+            "status": "success",
             "user": serializer.data
         }, status=status.HTTP_201_CREATED)
+        response.set_cookie(
+            key='access_token',
+            value=str(refresh.access_token),
+            httponly=True,
+            secure=False, # Use True in production with HTTPS
+            samesite='Lax',
+            max_age=7*24*60*60
+        )
+        return response
 
 class LoginView(views.APIView):
     permission_classes = (AllowAny,)
@@ -42,12 +49,27 @@ class LoginView(views.APIView):
         user = authenticate(email=email, password=password)
         if user:
             refresh = RefreshToken.for_user(user)
-            return Response({
-                "access_token": str(refresh.access_token),
-                "refresh_token": str(refresh),
-                "token_type": "bearer"
+            response = Response({
+                "status": "success"
             })
+            response.set_cookie(
+                key='access_token',
+                value=str(refresh.access_token),
+                httponly=True,
+                secure=False, # Use True in production with HTTPS
+                samesite='Lax',
+                max_age=7*24*60*60
+            )
+            return response
         return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+class LogoutView(views.APIView):
+    permission_classes = (AllowAny,)
+    
+    def post(self, request):
+        response = Response({"status": "logged_out"})
+        response.delete_cookie('access_token')
+        return response
 
 class TenantSettingsView(views.APIView):
     permission_classes = (IsAuthenticated,)
