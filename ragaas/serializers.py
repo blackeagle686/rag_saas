@@ -21,7 +21,12 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tenant
-        fields = ('llm_provider', 'llm_model', 'llm_api_key', 'llm_base_url')
+        fields = (
+            'plan',
+            'llm_provider', 'llm_model', 'llm_api_key', 'llm_base_url',
+            'embedding_provider', 'embedding_model', 'embedding_api_key', 'embedding_base_url'
+        )
+        read_only_fields = ('plan',)
 
     def get_llm_api_key(self, obj):
         key = obj.llm_api_key or ""
@@ -34,7 +39,10 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
 class TenantSettingsUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tenant
-        fields = ('llm_provider', 'llm_model', 'llm_api_key', 'llm_base_url')
+        fields = (
+            'llm_provider', 'llm_model', 'llm_api_key', 'llm_base_url',
+            'embedding_provider', 'embedding_model', 'embedding_api_key', 'embedding_base_url'
+        )
 
 class NamespaceSerializer(serializers.ModelSerializer):
     class Meta:
