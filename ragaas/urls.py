@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    RegisterView, LoginView, TenantSettingsView, NamespaceViewSet, NamespaceDocumentListView,
+    RegisterView, LoginView, LogoutView, TenantSettingsView, NamespaceViewSet, NamespaceDocumentListView,
     ApiKeyViewSet, IngestView, QueryView
 )
 from .billing import CreateCheckoutSessionView, StripeWebhookView
@@ -11,8 +11,9 @@ router.register(r'namespaces', NamespaceViewSet, basename='namespace')
 router.register(r'keys', ApiKeyViewSet, basename='apikey')
 
 urlpatterns = [
-    path('auth/register', RegisterView.as_view(), name='register'),
-    path('auth/login', LoginView.as_view(), name='login'),
+    path('auth/register', RegisterView.as_view(), name='auth_register'),
+    path('auth/login', LoginView.as_view(), name='auth_login'),
+    path('auth/logout', LogoutView.as_view(), name='auth_logout'),
     
     path('tenant/settings', TenantSettingsView.as_view(), name='tenant-settings'),
     
