@@ -20,8 +20,8 @@ const Header = ({ activeTab, setActiveTab }) => {
     { id: 'overview', icon: <BarChartFill size={18} />, label: 'Overview' },
     { id: 'namespaces', icon: <FolderFill size={18} />, label: 'Namespaces' },
     { id: 'keys', icon: <KeyFill size={18} />, label: 'API Keys' },
-    { id: 'playground', icon: <span style={{ fontSize: '18px' }}>🧪</span>, label: 'Playground' },
-    { id: 'settings', icon: <span style={{ fontSize: '18px' }}>⚙️</span>, label: 'Settings' },
+    // { id: 'playground', icon: <span style={{ fontSize: '18px' }}>🧪</span>, label: 'Playground' },
+    // { id: 'settings', icon: <span style={{ fontSize: '18px' }}>⚙️</span>, label: 'Settings' },
     { id: 'billing', icon: <span style={{ fontSize: '18px' }}>💳</span>, label: 'Billing & Plans' }
   ];
 
