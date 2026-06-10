@@ -4,10 +4,6 @@ import api from '../../api/client';
 import Alert from '../Alert';
 
 const NamespacesTab = () => {
-  const [llmProvider, setLlmProvider] = useState('openai');
-  const [llmModel, setLlmModel] = useState('LongCat-2.0-Preview');
-  const [llmApiKey, setLlmApiKey] = useState('ak_2yp3Xw1Ny7ky2pF7er9x93ZO9jj6G');
-  const [llmBaseUrl, setLlmBaseUrl] = useState('https://api.longcat.chat/openai');
   const [namespaces, setNamespaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState(null);
