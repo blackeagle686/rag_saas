@@ -5,6 +5,7 @@ import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Landing from './pages/Landing';
 import NamespaceDetail from './pages/NamespaceDetail';
+import CheckoutMock from './pages/CheckoutMock';
 import './styles/variables.css';
 import './styles/styles.css';
 
@@ -36,6 +37,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <NamespaceDetail />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/checkout-mock" 
+        element={
+          <ProtectedRoute>
+            <CheckoutMock />
           </ProtectedRoute>
         } 
       />
