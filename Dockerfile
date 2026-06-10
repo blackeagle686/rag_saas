@@ -1,5 +1,5 @@
 # == Stage 1: Builder ==
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # == Stage 2: Runtime ==
-FROM python:3.11-slim AS runtime
+FROM python:3.12-slim AS runtime
 
 # Security: non-root user
 RUN groupadd --gid 1000 appuser \
