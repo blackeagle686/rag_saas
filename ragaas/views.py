@@ -10,6 +10,7 @@ from .serializers import (
 )
 from .services import KeyService, NamespaceService, QueryService
 from .tasks import process_document
+from .authentication import ApiKeyAuthentication, CanDeployApiPermission
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
@@ -141,7 +142,8 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
         return Response({"message": f"API key {api_key.id} has been revoked."}, status=status.HTTP_200_OK)
 
 class IngestView(views.APIView):
-    permission_classes = (IsAuthenticated,)
+    authentication_classes = [ApiKeyAuthentication, *views.APIView.authentication_classes]
+    permission_classes = (IsAuthenticated, CanDeployApiPermission)
     
     def post(self, request):
         file_obj = request.FILES.get('file')
@@ -182,7 +184,8 @@ class IngestView(views.APIView):
         }, status=status.HTTP_202_ACCEPTED)
 
 class QueryView(views.APIView):
-    permission_classes = (IsAuthenticated,)
+    authentication_classes = [ApiKeyAuthentication, *views.APIView.authentication_classes]
+    permission_classes = (IsAuthenticated, CanDeployApiPermission)
 
     def post(self, request):
         namespace_name = request.data.get('namespace', 'default')
