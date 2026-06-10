@@ -25,9 +25,9 @@ environ.Env.read_env(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-k=h)%_!dtuoiy_=-)501!xc!w2!w0kezy92*zrz8&v)r!!k8s1')
-DEBUG = env('DEBUG', default=True)
+DEBUG = env('DEBUG', default=False)
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 APPEND_SLASH = False
 
 # Application definition
@@ -118,7 +118,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    env('FRONTEND_URL', default='http://localhost:5173')
+]
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_METHODS = [
@@ -194,3 +197,12 @@ STRIPE_PRICE_START = env('STRIPE_PRICE_START', default='price_mock_start')
 STRIPE_PRICE_MID = env('STRIPE_PRICE_MID', default='price_mock_mid')
 STRIPE_PRICE_PRIME = env('STRIPE_PRICE_PRIME', default='price_mock_prime')
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
+
+# Security settings (enabled only in production when not debugging)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
