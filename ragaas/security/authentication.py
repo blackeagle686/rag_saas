@@ -14,7 +14,7 @@ class JWTCookieAuthentication(JWTAuthentication):
         except Exception:
             return None
 from rest_framework.permissions import BasePermission
-from .models import ApiKey
+from ragaas.models import ApiKey
 from core.security import verify_api_key
 
 class ApiKeyAuthentication(authentication.BaseAuthentication):
