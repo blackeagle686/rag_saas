@@ -1,10 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../api/client';
 import Alert from '../Alert';
 
 const BillingTab = () => {
   const [loading, setLoading] = useState(null);
   const [alert, setAlert] = useState(null);
+  const [currentPlan, setCurrentPlan] = useState('free');
+  
+  useEffect(() => {
+    loadPlan();
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      setAlert({ type: 'success', message: 'Payment successful! Your plan has been upgraded.' });
+    }
+  }, []);
+
+  const loadPlan = async () => {
+    try {
+      const data = await api.getSettings();
+      if (data && data.plan) setCurrentPlan(data.plan);
+    } catch (error) {
+      console.error('Failed to load plan', error);
+    }
+  };
+
+  const getPlanProps = (planId) => {
+    const weights = { free: 0, start: 1, mid: 2, prime: 3 };
+    const currW = weights[currentPlan] || 0;
+    const tarW = weights[planId] || 0;
+    
+    if (planId === currentPlan) return { text: 'Current Plan', disabled: true };
+    if (tarW < currW) return { text: 'Downgrade', disabled: false };
+    return { text: `Upgrade to ${planId.charAt(0).toUpperCase() + planId.slice(1)}`, disabled: false };
+  };
 
   const plans = [
     {
@@ -12,9 +40,7 @@ const BillingTab = () => {
       name: 'Free (Playground)',
       price: '$0',
       description: 'Test the platform without any friction.',
-      features: ['Local Embeddings', 'Chroma DB', 'Basic RAG System', 'Dashboard Chatbot', '10 Requests / Day'],
-      buttonText: 'Current Plan',
-      disabled: true
+      features: ['Local Embeddings', 'Chroma DB', 'Basic RAG System', 'Dashboard Chatbot', '10 Requests / Day']
     },
     {
       id: 'start',
@@ -22,9 +48,7 @@ const BillingTab = () => {
       price: '$29',
       interval: '/mo',
       description: 'For early-stage startups and MVPs.',
-      features: ['API Deployment', 'Advanced RAG', 'GPT-4o-mini', '50 MB Ingestion', '500 Requests / Day'],
-      buttonText: 'Upgrade to Start',
-      disabled: false
+      features: ['API Deployment', 'Advanced RAG', 'GPT-4o-mini', '50 MB Ingestion', '500 Requests / Day']
     },
     {
       id: 'mid',
@@ -32,9 +56,7 @@ const BillingTab = () => {
       price: '$99',
       interval: '/mo',
       description: 'For growing businesses needing scale and speed.',
-      features: ['Qdrant DB Cluster', 'Hybrid Models (GPT/Gemini)', 'CAG System', 'Web App Templates', '5,000 Requests / Day'],
-      buttonText: 'Upgrade to Mid',
-      disabled: false
+      features: ['Qdrant DB Cluster', 'Hybrid Models (GPT/Gemini)', 'CAG System', 'Web App Templates', '5,000 Requests / Day']
     },
     {
       id: 'prime',
@@ -42,9 +64,7 @@ const BillingTab = () => {
       price: '$299',
       interval: '/mo',
       description: 'Enterprise scale with autonomous agents.',
-      features: ['Bring Your Own DB', 'Agentic & MultiModal RAG', 'Claude 3.5 & GPT-4o', 'White-labeled Apps', '50,000 Requests / Day'],
-      buttonText: 'Upgrade to Prime',
-      disabled: false
+      features: ['Bring Your Own DB', 'Agentic & MultiModal RAG', 'Claude 3.5 & GPT-4o', 'White-labeled Apps', '50,000 Requests / Day']
     }
   ];
 
@@ -127,12 +147,12 @@ const BillingTab = () => {
             </ul>
             
             <button 
-              className={`btn ${plan.id === 'mid' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ width: '100%', marginTop: 'auto', padding: '0.8rem' }}
+              className={`btn ${plan.id === currentPlan ? 'btn-secondary' : plan.id === 'mid' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ width: '100%', marginTop: 'auto', padding: '0.8rem', opacity: plan.id === currentPlan ? 0.7 : 1 }}
               onClick={() => handleUpgrade(plan.id)}
-              disabled={plan.disabled || loading !== null}
+              disabled={getPlanProps(plan.id).disabled || loading !== null}
             >
-              {loading === plan.id ? 'Loading...' : plan.buttonText}
+              {loading === plan.id ? 'Loading...' : getPlanProps(plan.id).text}
             </button>
           </div>
         ))}
