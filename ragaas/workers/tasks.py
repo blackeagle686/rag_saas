@@ -6,7 +6,7 @@ from qdrant_client.http import models as qdrant_models
 from django.conf import settings
 import uuid
 
-@shared_task
+@shared_task(queue='bulk_ingestion')
 def process_document(document_id):
     try:
         doc = Document.objects.get(id=document_id)
@@ -166,7 +166,7 @@ def process_document(document_id):
         doc.save()
         raise e
 
-@shared_task
+@shared_task(queue='realtime')
 def log_query_metrics_task(tenant_id, query_text, answer, sources, query_ms, llm_model):
     try:
         from ragaas.models import Tenant, UsageEvent
@@ -183,7 +183,7 @@ def log_query_metrics_task(tenant_id, query_text, answer, sources, query_ms, llm
     except Exception as e:
         print(f"Error logging metrics: {e}")
 
-@shared_task
+@shared_task(queue='realtime')
 def delete_namespace_data_task(tenant_id, namespace_name):
     try:
         from ragaas.models import Namespace
