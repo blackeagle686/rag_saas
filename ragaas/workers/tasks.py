@@ -60,9 +60,14 @@ def process_document(document_id):
             qdrant = QdrantClient(
                 url=f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}",
                 api_key=settings.QDRANT_API_KEY,
+                check_compatibility=False
             )
         else:
-            qdrant = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
+            qdrant = QdrantClient(
+                host=settings.QDRANT_HOST, 
+                port=settings.QDRANT_PORT,
+                check_compatibility=False
+            )
             
         collection_name = f"tenant_{doc.namespace.tenant.id.hex}"
         
