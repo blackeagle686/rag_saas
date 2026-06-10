@@ -5,6 +5,7 @@ import NamespacesTab from '../components/Tabs/NamespacesTab';
 import ApiKeysTab from '../components/Tabs/ApiKeysTab';
 import PlaygroundTab from '../components/Tabs/PlaygroundTab';
 import SettingsTab from '../components/Tabs/SettingsTab';
+import BillingTab from '../components/Tabs/BillingTab';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -28,6 +29,9 @@ const Dashboard = () => {
         </div>
         <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
           <SettingsTab />
+        </div>
+        <div style={{ display: activeTab === 'billing' ? 'block' : 'none' }}>
+          <BillingTab />
         </div>
       </main>
     </div>
