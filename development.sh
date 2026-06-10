@@ -151,16 +151,14 @@ run_services() {
 
   # 1. Start Docker dependencies
   if [ -z "$DOCKER_COMPOSE_CMD" ]; then
-    echo -e "${YELLOW}⚠️  Docker / Docker Compose not found. Proceeding with system services...${RESET}"
-    setup_system_postgres
-    update_env_file
+    echo -e "${RED}❌ Docker / Docker Compose not found. Qdrant requires Docker! Exiting...${RESET}"
+    exit 1
   else
     echo -e "${CYAN}[*] Starting database, cache, and vector store (Postgres, Redis, Qdrant)...${RESET}"
     $DOCKER_COMPOSE_CMD up -d postgres redis qdrant
     if [ $? -ne 0 ]; then
-      echo -e "${YELLOW}⚠️  Failed to start Docker services. Continuing with local processes (make sure Postgres, Redis, and Qdrant are running)...${RESET}"
-      setup_system_postgres
-      update_env_file
+      echo -e "${RED}❌ Failed to start Docker services. Make sure the Docker Daemon is running! Exiting...${RESET}"
+      exit 1
     fi
   fi
 
