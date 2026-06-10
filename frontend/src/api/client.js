@@ -159,6 +159,16 @@ class RAGaaSApiClient {
     });
   }
 
+  async uploadDocumentFromDb(namespace, dbConfig) {
+    return this.request('/v1/ingest/database', {
+      method: 'POST',
+      body: JSON.stringify({
+        namespace,
+        db_config: dbConfig,
+      }),
+    });
+  }
+
   // == Retrieval/Query ==
   async query(namespace, queryText, topK = 5, model = null, filters = null) {
     const body = {
