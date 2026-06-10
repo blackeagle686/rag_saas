@@ -188,8 +188,8 @@ class QueryService:
         embeddings = PhoenixEmbeddingAdapter(
             provider=ns.embedding_provider,
             model=ns.embedding_model,
-            api_key=ns.embedding_api_key,
-            base_url=ns.embedding_base_url,
+            api_key=ns.embedding_api_key or tenant.embedding_api_key,
+            base_url=ns.embedding_base_url or tenant.embedding_base_url,
         )
 
         # 2. Setup Vector DB (Qdrant adapter matching tasks.py collection format)
@@ -201,17 +201,20 @@ class QueryService:
         
         if ns.llm_provider == "openai":
             # Temporary override env vars for OpenAILLM since it uses config/env internally
+            resolved_api_key = ns.llm_api_key or tenant.llm_api_key or os.environ.get("OPENAI_API_KEY")
+            resolved_base_url = ns.llm_base_url or tenant.llm_base_url or os.environ.get("OPENAI_API_BASE")
+            
             old_key = os.environ.get("OPENAI_API_KEY")
             old_url = os.environ.get("OPENAI_API_BASE")
-            if ns.llm_api_key:
-                os.environ["OPENAI_API_KEY"] = ns.llm_api_key
-            if ns.llm_base_url:
-                os.environ["OPENAI_API_BASE"] = ns.llm_base_url
+            if resolved_api_key:
+                os.environ["OPENAI_API_KEY"] = resolved_api_key
+            if resolved_base_url:
+                os.environ["OPENAI_API_BASE"] = resolved_base_url
                 
             llm = OpenAILLM()
             llm.model = llm_model
-            llm.api_key = ns.llm_api_key or os.environ.get("OPENAI_API_KEY")
-            llm.base_url = ns.llm_base_url or os.environ.get("OPENAI_API_BASE")
+            llm.api_key = resolved_api_key
+            llm.base_url = resolved_base_url
         else:
             # Fallback to a mock LLM for unsupported providers in this refactor
             class MockLLM:

@@ -52,8 +52,8 @@ def process_document(document_id):
         embedder = EmbeddingService(
             provider=ns.embedding_provider,
             model=ns.embedding_model,
-            api_key=ns.embedding_api_key,
-            base_url=ns.embedding_base_url
+            api_key=ns.embedding_api_key or ns.tenant.embedding_api_key,
+            base_url=ns.embedding_base_url or ns.tenant.embedding_base_url
         )
         
         if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
