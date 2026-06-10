@@ -5,6 +5,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: ragaas-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ragaas
       POSTGRES_USER: ragaas
@@ -23,6 +24,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ragaas-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -37,6 +39,7 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: ragaas-qdrant
+    restart: unless-stopped
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -54,6 +57,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ragaas-api
+    restart: unless-stopped
     ports:
       - "8000:8000"
     env_file:
@@ -65,7 +69,6 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
     volumes:
-      - .:/app
       - storagedata:/app/storage
     depends_on:
       postgres:
@@ -86,6 +89,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ragaas-worker
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -95,7 +99,6 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/1
       CELERY_RESULT_BACKEND: redis://redis:6379/2
     volumes:
-      - .:/app
       - storagedata:/app/storage
     depends_on:
       postgres:
@@ -111,12 +114,13 @@ services:
 
   # == Frontend Static Server (Nginx) ==
   frontend:
-    image: nginx:alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: ragaas-frontend
+    restart: unless-stopped
     ports:
       - "5000:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
 
 volumes:
   pgdata:
