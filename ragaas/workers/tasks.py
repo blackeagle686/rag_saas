@@ -1,5 +1,5 @@
 from celery import shared_task
-from .models import Document, Namespace
+from ragaas.models import Document, Namespace
 from core.embedding_service import EmbeddingService
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models

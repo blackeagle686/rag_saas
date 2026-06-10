@@ -2,7 +2,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
-from .models import Namespace, Document, ApiKey, UsageEvent
+from ragaas.models import Namespace, Document, ApiKey, UsageEvent
 
 Tenant = get_user_model()
 
