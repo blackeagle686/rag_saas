@@ -11,6 +11,7 @@ from .serializers import (
 from .services import KeyService, NamespaceService, QueryService
 from .tasks import process_document
 from .authentication import ApiKeyAuthentication, CanDeployApiPermission
+from .throttling import TierRateThrottle
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
@@ -144,6 +145,7 @@ class ApiKeyViewSet(viewsets.ModelViewSet):
 class IngestView(views.APIView):
     authentication_classes = [ApiKeyAuthentication, *views.APIView.authentication_classes]
     permission_classes = (IsAuthenticated, CanDeployApiPermission)
+    throttle_classes = (TierRateThrottle,)
     
     def post(self, request):
         file_obj = request.FILES.get('file')
@@ -186,6 +188,7 @@ class IngestView(views.APIView):
 class QueryView(views.APIView):
     authentication_classes = [ApiKeyAuthentication, *views.APIView.authentication_classes]
     permission_classes = (IsAuthenticated, CanDeployApiPermission)
+    throttle_classes = (TierRateThrottle,)
 
     def post(self, request):
         namespace_name = request.data.get('namespace', 'default')
