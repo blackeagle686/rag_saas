@@ -53,18 +53,17 @@ class QueryService:
         vector_db = QdrantVectorDBAdapter(collection_name=collection_name, embedding_service=embeddings, namespace_id=str(ns.id))
         llm_model = custom_model or ns.llm_model
         
-        old_key = os.environ.get("OPENAI_API_KEY")
-        old_url = os.environ.get("OPENAI_API_BASE")
-        
         if ns.llm_provider == "openai":
             resolved_api_key = ns.llm_api_key or tenant.llm_api_key or os.environ.get("OPENAI_API_KEY")
             resolved_base_url = ns.llm_base_url or tenant.llm_base_url or os.environ.get("OPENAI_API_BASE")
-            if resolved_api_key: os.environ["OPENAI_API_KEY"] = resolved_api_key
-            if resolved_base_url: os.environ["OPENAI_API_BASE"] = resolved_base_url
+            # CRITICAL SECURITY FIX: Do not mutate os.environ globally as it causes cross-tenant race conditions.
+            # Phoenix / OpenAI clients must be configured via instance properties.
             llm = OpenAILLM()
             llm.model = llm_model
-            llm.api_key = resolved_api_key
-            llm.base_url = resolved_base_url
+            if resolved_api_key:
+                llm.api_key = resolved_api_key
+            if resolved_base_url:
+                llm.base_url = resolved_base_url
         else:
             class MockLLM:
                 async def init(self): pass
@@ -91,14 +90,19 @@ class QueryService:
             answer = result.get("answer", "")
             sources = result.get("sources", [])
         finally:
-            if ns.llm_provider == "openai":
-                if old_key is not None: os.environ["OPENAI_API_KEY"] = old_key
-                else: os.environ.pop("OPENAI_API_KEY", None)
-                if old_url is not None: os.environ["OPENAI_API_BASE"] = old_url
-                else: os.environ.pop("OPENAI_API_BASE", None)
+            pass # Removed os.environ restore logic since we no longer mutate it
 
         query_ms = int((time.time() - start_time) * 1000)
-        tokens_used = 0 
+        
+        # Calculate accurate token usage for billing using tiktoken
+        try:
+            import tiktoken
+            enc = tiktoken.get_encoding("cl100k_base")
+            context_text = " ".join([str(s.get("content", s.get("text", ""))) for s in sources]) if isinstance(sources, list) else ""
+            input_text = query_text + context_text
+            tokens_used = len(enc.encode(input_text)) + len(enc.encode(answer))
+        except Exception:
+            tokens_used = 0 
         
         UsageEvent.objects.create(
             tenant=tenant, event_type='query', tokens_used=tokens_used, query_ms=query_ms, model_used=llm_model
