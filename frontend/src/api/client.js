@@ -214,6 +214,14 @@ class RAGaaSApiClient {
       body: JSON.stringify(settings),
     });
   }
+
+  // == Billing Management ==
+  async createCheckoutSession(planId) {
+    return this.request('/v1/billing/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ plan_id: planId }),
+    });
+  }
 }
 
 const api = new RAGaaSApiClient();
