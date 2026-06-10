@@ -534,7 +534,8 @@ const NamespaceDetail = () => {
             {(() => {
               const isAllowed = (requiredPlan) => {
                 const tiers = { free: 0, start: 1, mid: 2, prime: 3, enterprise: 4 };
-                return tiers[plan] >= tiers[requiredPlan];
+                const currentTier = tiers[(plan || 'free').toLowerCase()] || 0;
+                return currentTier >= tiers[requiredPlan];
               };
 
               return nsTab === 'settings' && (
