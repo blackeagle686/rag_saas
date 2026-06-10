@@ -6,7 +6,7 @@ from ragaas.api.namespace_views import NamespaceViewSet, NamespaceDocumentListVi
 from ragaas.api.query_views import IngestView, QueryView
 from ragaas.api.billing_views import CreateCheckoutSessionView, StripeWebhookView
 
-router = DefaultRouter()
+router = DefaultRouter(trailing_slash=False)
 router.register(r'namespaces', NamespaceViewSet, basename='namespace')
 router.register(r'keys', ApiKeyViewSet, basename='apikey')
 
