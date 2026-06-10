@@ -704,8 +704,8 @@ const NamespacesTab = () => {
               <div className="form-group" style={{ marginTop: '1.5rem' }}>
                 <label className="form-label">RAG System Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
-                    (() => {
-                      const isAllowed = (requiredPlan) => {
+                  {(() => {
+                    const isAllowed = (requiredPlan) => {
                         const tiers = { free: 0, start: 1, mid: 2, prime: 3, enterprise: 4 };
                         return tiers[plan] >= tiers[requiredPlan];
                       };
