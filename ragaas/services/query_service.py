@@ -26,9 +26,9 @@ class QdrantVectorDBAdapter:
     async def init(self):
         from qdrant_client import QdrantClient
         if hasattr(settings, 'QDRANT_API_KEY') and settings.QDRANT_API_KEY:
-            self.client = QdrantClient(url=f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}", api_key=settings.QDRANT_API_KEY)
+            self.client = QdrantClient(url=f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}", api_key=settings.QDRANT_API_KEY, check_compatibility=False)
         else:
-            self.client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
+            self.client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, check_compatibility=False)
     async def search(self, query: str, limit: int = 5, where: dict = None) -> list:
         if not self.client: await self.init()
         vector = self.embedding_service.embed_query(query)
