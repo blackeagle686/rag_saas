@@ -111,19 +111,19 @@ class QueryService:
 
         query_ms = int((time.time() - start_time) * 1000)
         
-        # Calculate accurate token usage for billing using tiktoken
+        # Calculate accurate token usage and log metrics in background task
         try:
-            import tiktoken
-            enc = tiktoken.get_encoding("cl100k_base")
-            context_text = " ".join([str(s.get("content", s.get("text", ""))) for s in sources]) if isinstance(sources, list) else ""
-            input_text = query_text + context_text
-            tokens_used = len(enc.encode(input_text)) + len(enc.encode(answer))
-        except Exception:
-            tokens_used = 0 
-        
-        UsageEvent.objects.create(
-            tenant=tenant, event_type='query', tokens_used=tokens_used, query_ms=query_ms, model_used=llm_model
-        )
+            from ragaas.workers.tasks import log_query_metrics_task
+            log_query_metrics_task.delay(
+                tenant_id=str(tenant.id),
+                query_text=query_text,
+                answer=answer,
+                sources=sources,
+                query_ms=query_ms,
+                llm_model=llm_model
+            )
+        except Exception as e:
+            print(f"Error dispatching metrics task: {e}")
         
         return {
             "answer": answer,

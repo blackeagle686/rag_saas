@@ -39,7 +39,10 @@ def process_document(document_id):
                 )
                 cur = conn.cursor()
                 cur.execute(query)
-                rows = cur.fetchall()
+                while True:
+                    batch_rows = cur.fetchmany(1000)
+                    if not batch_rows: break
+                    text += "\n\n".join([str(item) for row in batch_rows for item in row if item]) + "\n\n"
                 conn.close()
             elif db_type == 'mysql':
                 import pymysql
@@ -52,16 +55,20 @@ def process_document(document_id):
                 )
                 cur = conn.cursor()
                 cur.execute(query)
-                rows = cur.fetchall()
+                while True:
+                    batch_rows = cur.fetchmany(1000)
+                    if not batch_rows: break
+                    text += "\n\n".join([str(item) for row in batch_rows for item in row if item]) + "\n\n"
                 conn.close()
             elif db_type == 'sqlite':
                 conn = sqlite3.connect(db_config.get('database'))
                 cur = conn.cursor()
                 cur.execute(query)
-                rows = cur.fetchall()
+                while True:
+                    batch_rows = cur.fetchmany(1000)
+                    if not batch_rows: break
+                    text += "\n\n".join([str(item) for row in batch_rows for item in row if item]) + "\n\n"
                 conn.close()
-                
-            text = "\n\n".join([str(item) for row in rows for item in row if item])
             
         elif doc.file_type in ('txt', 'md'):
             text = content_bytes.decode('utf-8', errors='ignore')
@@ -147,3 +154,45 @@ def process_document(document_id):
         doc.error_message = str(e)
         doc.save()
         raise e
+
+@shared_task
+def log_query_metrics_task(tenant_id, query_text, answer, sources, query_ms, llm_model):
+    try:
+        from ragaas.models import Tenant, UsageEvent
+        import tiktoken
+        tenant = Tenant.objects.get(id=tenant_id)
+        enc = tiktoken.get_encoding("cl100k_base")
+        context_text = " ".join([str(s.get("content", s.get("text", ""))) for s in sources]) if isinstance(sources, list) else ""
+        input_text = query_text + context_text
+        tokens_used = len(enc.encode(input_text)) + len(enc.encode(answer))
+        
+        UsageEvent.objects.create(
+            tenant=tenant, event_type='query', tokens_used=tokens_used, query_ms=query_ms, model_used=llm_model
+        )
+    except Exception as e:
+        print(f"Error logging metrics: {e}")
+
+@shared_task
+def delete_namespace_data_task(tenant_id, namespace_name):
+    try:
+        from ragaas.models import Namespace
+        import chromadb
+        import os
+        from django.conf import settings
+        
+        ns = Namespace.objects.filter(tenant_id=tenant_id, name=namespace_name).first()
+        if not ns: return
+        
+        # Clean ChromaDB vectors
+        try:
+            chroma_client = chromadb.PersistentClient(path=os.path.join(settings.BASE_DIR, "chroma_db"))
+            collection_name = f"tenant_{tenant_id}"
+            collection = chroma_client.get_collection(name=collection_name)
+            collection.delete(where={"namespace_id": str(ns.id)})
+        except Exception:
+            pass # Collection might not exist or be empty
+            
+        # The database cascade deletes documents and API keys
+        ns.delete()
+    except Exception as e:
+        print(f"Error deleting namespace: {e}")
