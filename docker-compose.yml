@@ -105,9 +105,12 @@ services:
     image: ngrok/ngrok:latest
     container_name: ragaas-ngrok
     restart: unless-stopped
+    ports:
+      - "4040:4040"
     command:
       - "http"
       - "frontend:80"
+      - "--log=stdout"
     environment:
       - NGROK_AUTHTOKEN=36jW6kAV8Inp5SHYiuIicuuRols_7NkiWdLme3iULLJx3gMS5
     depends_on:
