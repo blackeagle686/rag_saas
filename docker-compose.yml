@@ -86,7 +86,7 @@ services:
       - redis
       - qdrant
     command: >
-      celery -A workers.celery_app worker
+      celery -A config worker -Q celery,realtime,bulk_ingestion
       --loglevel=info
       --concurrency=2
 
