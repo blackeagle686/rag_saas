@@ -13,11 +13,6 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ragaas"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
   # == Redis ==
   redis:
@@ -28,11 +23,6 @@ services:
       - "6380:6379"
     volumes:
       - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
   # == Qdrant Vector DB ==
   qdrant:
@@ -44,11 +34,6 @@ services:
       - "6334:6334"
     volumes:
       - qdrantdata:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:6333/ || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
 
   # == FastAPI Application ==
   api:
