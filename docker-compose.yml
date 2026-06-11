@@ -105,8 +105,6 @@ services:
     image: ngrok/ngrok:latest
     container_name: ragaas-ngrok
     restart: unless-stopped
-    ports:
-      - "4041:4040"
     command:
       - "http"
       - "frontend:80"
