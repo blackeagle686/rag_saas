@@ -24,4 +24,5 @@ sentence-transformers>=2.7.0
 transformers>=4.51.0
 torch>=2.2.0
 email-validator
+python-jose
 stripe
