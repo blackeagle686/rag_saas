@@ -121,6 +121,8 @@ stop_services() {
             pid=$(cat "$PID_DIR/$service.pid")
             echo -e "${CYAN}[*] Stopping $service (PID: $pid)...${RESET}"
             kill "$pid"
+            # Wait for process to actually terminate
+            while ps -p "$pid" > /dev/null 2>&1; do sleep 0.5; done
             rm -f "$PID_DIR/$service.pid"
         fi
     done
