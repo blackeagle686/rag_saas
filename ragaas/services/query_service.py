@@ -1,6 +1,7 @@
 import time
 import os
 import asyncio
+import hashlib
 from asgiref.sync import async_to_sync
 from django.conf import settings
 from ragaas.models import Namespace, UsageEvent
@@ -8,8 +9,12 @@ from core.embedding_service import EmbeddingService
 from phoenix.framework.rag import RAG, CAG, AgenticRAG, MultiModalRAG
 from phoenix.framework.rag.config import RAGConfig, CAGConfig, AgenticRAGConfig, MultiModalRAGConfig
 from phoenix.services.llm.openai import OpenAILLM
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as qdrant_models
+from django.core.cache import cache
+from ragaas.workers.tasks import log_query_metrics_task
 
-class PhoenixEmbeddingAdapter:
+class PhoenixEmbeddingAdapter:  
     def __init__(self, provider, model, api_key, base_url):
         self.service = EmbeddingService(provider, model, api_key, base_url)
     def embed_documents(self, texts):
@@ -31,8 +36,6 @@ class QdrantVectorDBAdapter:
         vector = self.embedding_service.embed_query(query)
         
         def _do_search():
-            from qdrant_client import QdrantClient
-            from qdrant_client.http import models as qdrant_models
             
             qdrant_url = getattr(settings, 'QDRANT_URL', 'http://localhost:6333')
             client = QdrantClient(url=qdrant_url)
@@ -83,14 +86,12 @@ class QueryService:
         # ---------------------------------------------------------
         # SEMANTIC CACHING - Avoid expensive LLM calls for identical queries
         # ---------------------------------------------------------
-        import hashlib
-        from django.core.cache import cache
         query_hash = hashlib.sha256(query_text.encode('utf-8')).hexdigest()
         cache_key = f"semantic_cache:{tenant.id}:{ns.id}:{query_hash}"
         cached_result = cache.get(cache_key)
         
         if cached_result:
-            from ragaas.workers.tasks import log_query_metrics_task
+            
             log_query_metrics_task.delay(
                 tenant_id=str(tenant.id), query_text=query_text, answer=cached_result["answer"],
                 sources=cached_result["context_chunks"], query_ms=int((time.time() - start_time) * 1000), llm_model="semantic-cache"
@@ -144,7 +145,7 @@ class QueryService:
         
         # Calculate accurate token usage and log metrics in background task
         try:
-            from ragaas.workers.tasks import log_query_metrics_task
+            
             log_query_metrics_task.delay(
                 tenant_id=str(tenant.id),
                 query_text=query_text,
