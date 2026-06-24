@@ -24,7 +24,7 @@ urlpatterns = [
     path('ingest/database', DatabaseIngestView.as_view(), name='ingest-database'),
     path('query', QueryView.as_view(), name='query'),
     
-    path('bot/<str:namespace_id>/chat', SharedBotChatView.as_view(), name='bot-chat'),
+    path('widget/<str:namespace_id>/query', SharedBotChatView.as_view(), name='widget-query'),
     
     path('billing/checkout', CreateCheckoutSessionView.as_view(), name='billing-checkout'),
     path('billing/webhook', StripeWebhookView.as_view(), name='billing-webhook'),
