@@ -56,6 +56,9 @@ start_services() {
     export REDIS_URL="redis://localhost:6380/0"
     export CELERY_BROKER_URL="redis://localhost:6380/1"
     export CELERY_RESULT_BACKEND="redis://localhost:6380/2"
+    
+    # Configure Database to use the correct local credentials
+    export DATABASE_URL="postgresql://ragsass%40tlk.com:ragsaas_tlk_1680@localhost:5432/ragaas"
 
     # 2. Start Django Backend
     if is_running "$PID_DIR/django.pid"; then
