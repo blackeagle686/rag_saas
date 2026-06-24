@@ -60,6 +60,23 @@ start_services() {
     # Configure Database to use the correct local credentials
     export DATABASE_URL="postgresql://ragsass%40tlk.com:ragsaas_tlk_1680@localhost:5432/ragaas"
 
+    # 1.5 Start Qdrant
+    if is_running "$PID_DIR/qdrant.pid"; then
+        echo -e "${YELLOW}⚠️  Qdrant is already running.${RESET}"
+    else
+        echo -e "${CYAN}[*] Starting Qdrant...${RESET}"
+        if [ ! -f "$CWD/qdrant" ]; then
+            echo -e "${YELLOW}   - Downloading Qdrant binary for local execution...${RESET}"
+            wget -qO- https://github.com/qdrant/qdrant/releases/latest/download/qdrant-x86_64-unknown-linux-gnu.tar.gz | tar xz -C "$CWD"
+        fi
+        
+        "$CWD/qdrant" > "$LOG_DIR/qdrant.log" 2>&1 &
+        echo $! > "$PID_DIR/qdrant.pid"
+        echo -e "${GREEN}   ✓ Qdrant started.${RESET}"
+    fi
+    
+    sleep 2
+
     # 2. Start Django Backend
     if is_running "$PID_DIR/django.pid"; then
         echo -e "${YELLOW}⚠️  Django is already running.${RESET}"
@@ -99,7 +116,7 @@ start_services() {
 stop_services() {
     echo -e "${BLUE}🛑 Stopping Local Services...${RESET}"
     
-    for service in frontend celery django redis; do
+    for service in frontend celery django redis qdrant; do
         if is_running "$PID_DIR/$service.pid"; then
             pid=$(cat "$PID_DIR/$service.pid")
             echo -e "${CYAN}[*] Stopping $service (PID: $pid)...${RESET}"
@@ -115,7 +132,7 @@ tail_logs() {
     local service="$1"
     if [ -z "$service" ]; then
         echo -e "${BLUE}📋 Tailing all logs...${RESET}"
-        tail -f "$LOG_DIR"/django.log "$LOG_DIR"/celery.log "$LOG_DIR"/frontend.log "$LOG_DIR"/redis.log
+        tail -f "$LOG_DIR"/django.log "$LOG_DIR"/celery.log "$LOG_DIR"/frontend.log "$LOG_DIR"/redis.log "$LOG_DIR"/qdrant.log
     else
         tail -f "$LOG_DIR/$service.log"
     fi
