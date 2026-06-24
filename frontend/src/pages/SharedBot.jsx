@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 
 const SharedBot = () => {
   const { namespaceId } = useParams();
+  const location = useLocation();
   const [messages, setMessages] = useState([{ role: 'assistant', content: 'Hello! I am your AI assistant. How can I help you today?' }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   
   const [apiKey, setApiKey] = useState('demo_api_key_123'); 
+  const [isKeyFromUrl, setIsKeyFromUrl] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const keyParam = params.get('key');
+    if (keyParam) {
+      setApiKey(keyParam);
+      setIsKeyFromUrl(true);
+    }
+  }, [location]);
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -67,19 +78,21 @@ const SharedBot = () => {
       </header>
 
       {/* API Key Config (Demo Mode) */}
-      <div className="bg-gray-900/50 p-2 text-xs border-b border-gray-800 flex flex-col sm:flex-row items-center justify-center sm:justify-between px-6 gap-2 backdrop-blur-sm">
-        <span className="text-orange-400 font-medium flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          Demo Mode: Enter API Key
-        </span>
-        <input 
-          type="text" 
-          value={apiKey} 
-          onChange={(e) => setApiKey(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-gray-300 w-full sm:w-64 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-          placeholder="X-API-Key"
-        />
-      </div>
+      {!isKeyFromUrl && (
+        <div className="bg-gray-900/50 p-2 text-xs border-b border-gray-800 flex flex-col sm:flex-row items-center justify-center sm:justify-between px-6 gap-2 backdrop-blur-sm">
+          <span className="text-orange-400 font-medium flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Demo Mode: Enter API Key
+          </span>
+          <input 
+            type="text" 
+            value={apiKey} 
+            onChange={(e) => setApiKey(e.target.value)}
+            className="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-gray-300 w-full sm:w-64 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+            placeholder="X-API-Key"
+          />
+        </div>
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
