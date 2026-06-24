@@ -42,7 +42,7 @@ start_services() {
         echo -e "${YELLOW}⚠️  Redis is already running.${RESET}"
     else
         echo -e "${CYAN}[*] Starting Redis...${RESET}"
-        redis-server --daemonize yes --logfile "$LOG_DIR/redis.log" --pidfile "$PID_DIR/redis.pid"
+        redis-server --port 6380 --daemonize yes --logfile "$LOG_DIR/redis.log" --pidfile "$PID_DIR/redis.pid"
         if [ $? -eq 0 ]; then
              echo -e "${GREEN}   ✓ Redis started.${RESET}"
         else
@@ -51,6 +51,11 @@ start_services() {
     fi
 
     sleep 1
+
+    # Configure Django & Celery to use the new Redis port
+    export REDIS_URL="redis://localhost:6380/0"
+    export CELERY_BROKER_URL="redis://localhost:6380/1"
+    export CELERY_RESULT_BACKEND="redis://localhost:6380/2"
 
     # 2. Start Django Backend
     if is_running "$PID_DIR/django.pid"; then
