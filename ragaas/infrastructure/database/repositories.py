@@ -46,9 +46,16 @@ class DjangoTenantRepository(ITenantRepository):
         )
 
     def _to_domain(self, orm_obj: DjangoTenant) -> DomainTenant:
+        plan_str = orm_obj.plan
+        if plan_str == 'starter': plan_str = 'start'
+        try:
+            plan_tier = PlanTier(plan_str)
+        except ValueError:
+            plan_tier = PlanTier.FREE
+
         return DomainTenant(
             id=orm_obj.id, email=orm_obj.email, name=orm_obj.name,
-            plan=PlanTier(orm_obj.plan), status=orm_obj.status, is_active=orm_obj.is_active,
+            plan=plan_tier, status=orm_obj.status, is_active=orm_obj.is_active,
             can_deploy_api=orm_obj.can_deploy_api, allowed_vector_dbs=orm_obj.allowed_vector_dbs,
             allowed_rag_types=orm_obj.allowed_rag_types,
             created_at=orm_obj.created_at, updated_at=orm_obj.updated_at,
