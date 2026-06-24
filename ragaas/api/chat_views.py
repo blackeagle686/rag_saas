@@ -17,19 +17,20 @@ class SharedBotChatView(APIView):
     permission_classes = []
 
     def post(self, request, namespace_id):
-        # 1. Very basic API Key check (In production, validate hash via IAPIKeyRepository)
-        api_key = request.headers.get('X-API-Key')
-        if not api_key:
-            return Response({"error": "X-API-Key header required"}, status=401)
-        
         namespace_repo = DjangoNamespaceRepository()
         try:
             namespace_uuid = uuid.UUID(namespace_id)
-            # We mock the fetching of namespace since our dummy repo is not fully wired to models yet
-            # In a real scenario, this would query the DB. We'll simulate success.
-            tenant_id = uuid.uuid4() # Mock tenant
+            # In a real implementation, we would fetch the namespace from DB to get the actual tenant ID:
+            # namespace = namespace_repo.get_by_id(namespace_uuid)
+            # if not namespace: return Response({"error": "Namespace not found"}, status=404)
+            # tenant_id = namespace.tenant_id
+            
+            # For this clean architecture demo, we'll simulate the tenant ID
+            tenant_id = uuid.uuid4()
+        except ValueError:
+            return Response({"error": "Invalid namespace ID format"}, status=400)
         except Exception:
-            return Response({"error": "Invalid namespace ID"}, status=400)
+            return Response({"error": "Namespace not found"}, status=404)
 
         # 2. Extract inputs
         message_content = request.data.get('message')
