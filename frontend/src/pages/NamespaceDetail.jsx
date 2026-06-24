@@ -507,12 +507,13 @@ const NamespaceDetail = () => {
                 </p>
                 
                 <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <h4 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>🌐 Public Share URL</h4>
+                  <h4 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>🌐 Public AI Assistant Link</h4>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input type="text" className="form-input" readOnly value={`${window.location.origin}/share/${activeNamespace.name}`} style={{ flexGrow: 1 }} />
-                    <button className="btn btn-secondary" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/share/${activeNamespace.name}`); setAlert({type:'success', message:'Copied!'}) }}>Copy Link</button>
+                    <input type="text" className="form-input" readOnly value={`${window.location.origin}/bot/${activeNamespace.id || activeNamespace.name}`} style={{ flexGrow: 1 }} />
+                    <button className="btn btn-secondary" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/bot/${activeNamespace.id || activeNamespace.name}`); setAlert({type:'success', message:'Copied!'}) }}>Copy Link</button>
+                    <button className="btn btn-primary" onClick={() => window.open(`/bot/${activeNamespace.id || activeNamespace.name}`, '_blank')}>Open Template</button>
                   </div>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Anyone with this link can chat with your data. (Read-only access)</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Share this link with end-users. (Tip: Append <code>?key=YOUR_API_KEY</code> to the URL to securely embed access).</p>
                 </div>
 
                 <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)' }}>
