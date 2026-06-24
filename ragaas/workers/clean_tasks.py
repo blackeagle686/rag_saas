@@ -17,7 +17,7 @@ class DummyLLM:
     def generate_embedding(self, *args, **kwargs): return [0.1, 0.2, 0.3]
     def generate_answer(self, *args, **kwargs):
         from ragaas.domain.value_objects import LLMResponse, TokenUsage
-        return LLMResponse(answer="This is a simulated AI response. The clean architecture pipeline is working correctly from start to finish!", latency_ms=450, tokens_used=TokenUsage(prompt_tokens=10, completion_tokens=15, total_tokens=25), sources=[])
+        return LLMResponse(answer="This is a simulated AI response. The clean architecture pipeline is working correctly from start to finish!", latency_ms=450, tokens_used=TokenUsage(input_tokens=10, output_tokens=15, total_tokens=25), sources=[])
 
 class DummyVectorStore:
     def upsert_chunks(self, *args, **kwargs): pass
