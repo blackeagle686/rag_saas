@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Landing from './pages/Landing';
 import NamespaceDetail from './pages/NamespaceDetail';
 import CheckoutMock from './pages/CheckoutMock';
+import SharedBot from './pages/SharedBot';
 import './styles/variables.css';
 import './styles/styles.css';
 
@@ -48,6 +49,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } 
       />
+      <Route path="/bot/:namespaceId" element={<SharedBot />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

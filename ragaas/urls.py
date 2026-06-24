@@ -5,6 +5,7 @@ from ragaas.api.auth_views import RegisterView, LoginView, LogoutView, TenantSet
 from ragaas.api.namespace_views import NamespaceViewSet, NamespaceDocumentListView, ApiKeyViewSet
 from ragaas.api.query_views import IngestView, QueryView, DatabaseIngestView
 from ragaas.api.billing_views import CreateCheckoutSessionView, StripeWebhookView, MockCheckoutSuccessView
+from ragaas.api.chat_views import SharedBotChatView
 
 router = DefaultRouter(trailing_slash=False)
 router.register(r'namespaces', NamespaceViewSet, basename='namespace')
@@ -22,6 +23,8 @@ urlpatterns = [
     path('ingest', IngestView.as_view(), name='ingest'),
     path('ingest/database', DatabaseIngestView.as_view(), name='ingest-database'),
     path('query', QueryView.as_view(), name='query'),
+    
+    path('bot/<str:namespace_id>/chat', SharedBotChatView.as_view(), name='bot-chat'),
     
     path('billing/checkout', CreateCheckoutSessionView.as_view(), name='billing-checkout'),
     path('billing/webhook', StripeWebhookView.as_view(), name='billing-webhook'),
