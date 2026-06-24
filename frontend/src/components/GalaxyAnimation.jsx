@@ -15,14 +15,14 @@ const GalaxyAnimation = () => {
       
       {/* Dynamic Stars scattered around the galaxy plane */}
       <div className="stars-container">
-        {[...Array(150)].map((_, i) => {
+        {[...Array(70)].map((_, i) => {
           const angle = Math.random() * Math.PI * 2;
           // Distribute stars between radius 90px and 350px
           const radius = 90 + Math.random() * 260;
           const x = Math.cos(angle) * radius;
           const y = Math.sin(angle) * radius;
-          // Randomize sizes for depth effect
-          const size = Math.random() * 3 + 1;
+          // Increase size to compensate for no box-shadow
+          const size = Math.random() * 4 + 2;
           
           return (
             <div 

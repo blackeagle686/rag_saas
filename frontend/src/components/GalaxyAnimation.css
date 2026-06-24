@@ -94,6 +94,7 @@
   height: 100%;
   transform-style: preserve-3d;
   animation: spin-stars 25s linear infinite;
+  will-change: transform;
 }
 
 @keyframes spin-stars {
@@ -103,10 +104,10 @@
 
 .star {
   position: absolute;
-  background: #fff;
+  background: radial-gradient(circle, #fff 20%, rgba(168, 85, 247, 0.8) 50%, transparent 100%);
   border-radius: 50%;
-  box-shadow: 0 0 8px 2px rgba(168, 85, 247, 0.8), 0 0 15px 5px rgba(99, 102, 241, 0.6);
   animation: star-twinkle 2s infinite alternate ease-in-out;
+  will-change: transform, opacity;
 }
 
 @keyframes star-twinkle {
