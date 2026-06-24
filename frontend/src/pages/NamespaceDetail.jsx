@@ -509,9 +509,9 @@ const NamespaceDetail = () => {
                 <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <h4 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>🌐 Public AI Assistant Link</h4>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input type="text" className="form-input" readOnly value={`${window.location.origin}/bot/${activeNamespace.id || activeNamespace.name}`} style={{ flexGrow: 1 }} />
-                    <button className="btn btn-secondary" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/bot/${activeNamespace.id || activeNamespace.name}`); setAlert({type:'success', message:'Copied!'}) }}>Copy Link</button>
-                    <button className="btn btn-primary" onClick={() => window.open(`/bot/${activeNamespace.id || activeNamespace.name}`, '_blank')}>Open Template</button>
+                    <input type="text" className="form-input" readOnly value={`${window.location.origin}/widget/${activeNamespace.id || activeNamespace.name}`} style={{ flexGrow: 1 }} />
+                    <button className="btn btn-secondary" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/widget/${activeNamespace.id || activeNamespace.name}`); setAlert({type:'success', message:'Copied!'}) }}>Copy Link</button>
+                    <button className="btn btn-primary" onClick={() => window.open(`/widget/${activeNamespace.id || activeNamespace.name}`, '_blank')}>Open Template</button>
                   </div>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Share this public link directly with your end-users. No API key setup required.</p>
                 </div>

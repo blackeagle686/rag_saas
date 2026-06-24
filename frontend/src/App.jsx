@@ -49,7 +49,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } 
       />
-      <Route path="/bot/:namespaceId" element={<SharedBot />} />
+      <Route path="/widget/:namespaceId" element={<SharedBot />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -27,7 +27,7 @@ const SharedBot = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8000/v1/bot/${namespaceId}/chat`, {
+      const response = await fetch(`http://localhost:8000/v1/widget/${namespaceId}/query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
