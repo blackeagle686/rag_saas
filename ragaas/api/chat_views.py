@@ -63,7 +63,7 @@ class SharedBotChatView(APIView):
             return Response({
                 "answer": response_msg.content,
                 "session_id": str(response_msg.session_id),
-                "sources": [s.__dict__ for s in response_msg.sources]
+                "sources": [{**s.__dict__, "document_id": str(s.document_id)} for s in response_msg.sources]
             })
         except Exception as e:
             # We catch exceptions and return dummy data just for the UI to work if the DB is empty

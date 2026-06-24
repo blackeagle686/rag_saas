@@ -141,7 +141,7 @@ class DjangoChatSessionRepository(IChatSessionRepository):
                     'role': msg.role.value,
                     'content': msg.content,
                     'tokens_used': msg.tokens_used,
-                    'sources': [s.__dict__ for s in msg.sources],
+                    'sources': [{**s.__dict__, "document_id": str(s.document_id)} for s in msg.sources],
                     'created_at': msg.created_at
                 }
             )
