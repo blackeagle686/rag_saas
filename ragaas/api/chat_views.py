@@ -20,13 +20,10 @@ class SharedBotChatView(APIView):
         namespace_repo = DjangoNamespaceRepository()
         try:
             namespace_uuid = uuid.UUID(namespace_id)
-            # In a real implementation, we would fetch the namespace from DB to get the actual tenant ID:
-            # namespace = namespace_repo.get_by_id(namespace_uuid)
-            # if not namespace: return Response({"error": "Namespace not found"}, status=404)
-            # tenant_id = namespace.tenant_id
-            
-            # For this clean architecture demo, we'll simulate the tenant ID
-            tenant_id = uuid.uuid4()
+            namespace = namespace_repo.get_by_id(namespace_uuid)
+            if not namespace:
+                return Response({"error": "Namespace not found"}, status=404)
+            tenant_id = namespace.tenant_id
         except ValueError:
             return Response({"error": "Invalid namespace ID format"}, status=400)
         except Exception:

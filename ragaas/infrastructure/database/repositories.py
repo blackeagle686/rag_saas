@@ -140,8 +140,56 @@ class DjangoChatSessionRepository(IChatSessionRepository):
             )
 
 class DjangoNamespaceRepository(INamespaceRepository):
-    # Mapping boilerplate...
-    pass
+    def get_by_id(self, namespace_id: uuid.UUID) -> Optional[DomainNamespace]:
+        try:
+            orm_obj = DjangoNamespace.objects.get(id=namespace_id)
+            return self._to_domain(orm_obj)
+        except DjangoNamespace.DoesNotExist:
+            return None
+
+    def list_by_tenant(self, tenant_id: uuid.UUID) -> List[DomainNamespace]:
+        return [self._to_domain(obj) for obj in DjangoNamespace.objects.filter(tenant_id=tenant_id)]
+
+    def save(self, namespace: DomainNamespace) -> None:
+        DjangoNamespace.objects.update_or_create(
+            id=namespace.id,
+            defaults={
+                'tenant_id': namespace.tenant_id,
+                'name': namespace.name,
+                'rag_type': namespace.rag_type,
+                'llm_provider': namespace.llm_config.provider,
+                'llm_model': namespace.llm_config.model,
+                'llm_api_key': namespace.llm_config.api_key,
+                'llm_base_url': namespace.llm_config.base_url,
+                'embedding_provider': namespace.embedding_config.provider,
+                'embedding_model': namespace.embedding_config.model,
+            }
+        )
+
+    def delete(self, namespace_id: uuid.UUID) -> None:
+        DjangoNamespace.objects.filter(id=namespace_id).delete()
+
+    def _to_domain(self, orm_obj: DjangoNamespace) -> DomainNamespace:
+        return DomainNamespace(
+            id=orm_obj.id,
+            tenant_id=orm_obj.tenant_id,
+            name=orm_obj.name,
+            rag_type=orm_obj.rag_type,
+            created_at=orm_obj.created_at,
+            updated_at=orm_obj.updated_at,
+            llm_config=LLMConfig(
+                provider=orm_obj.llm_provider,
+                model=orm_obj.llm_model,
+                api_key=orm_obj.llm_api_key,
+                base_url=orm_obj.llm_base_url
+            ),
+            embedding_config=EmbeddingConfig(
+                provider=orm_obj.embedding_provider,
+                model=orm_obj.embedding_model,
+                api_key=orm_obj.embedding_api_key,
+                base_url=orm_obj.embedding_base_url
+            )
+        )
 
 class DjangoDocumentRepository(IDocumentRepository):
     # Mapping boilerplate...
