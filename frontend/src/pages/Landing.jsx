@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import GalaxyAnimation from '../components/GalaxyAnimation';
 
 const Landing = () => {
   const canvasRef = useRef(null);
@@ -151,16 +152,23 @@ const Landing = () => {
         </nav>
 
         {/* Hero Banner */}
-        <main style={{ padding: '8rem 5% 5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
-          <h1 className="animate-fade-in" style={{ fontSize: '4.5rem', fontFamily: 'var(--font-display)', fontWeight: 700, lineHeight: 1.1, marginBottom: '1.5rem' }}>
-            Build <span style={{ background: 'var(--accent-glow)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Agentic RAG</span> in Minutes
-          </h1>
-          <p className="animate-fade-in" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', marginBottom: '3rem', animationDelay: '0.1s', animationFillMode: 'both', lineHeight: 1.6 }}>
-            Deploy production-ready retrieval systems over your proprietary data. Seamlessly scale from a free local prototype to a multi-modal enterprise architecture.
-          </p>
-          <div className="animate-fade-in" style={{ display: 'flex', gap: '1.5rem', animationDelay: '0.2s', animationFillMode: 'both' }}>
-            <button className="btn btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem' }} onClick={() => navigate('/auth')}>Start Building</button>
-            <button className="btn btn-secondary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem' }} onClick={() => document.getElementById('how-it-works').scrollIntoView({ behavior: 'smooth' })}>How it Works</button>
+        <main style={{ padding: '8rem 5% 5rem', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', gap: '2rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 500px', textAlign: 'left' }}>
+            <h1 className="animate-fade-in" style={{ fontSize: '4.5rem', fontFamily: 'var(--font-display)', fontWeight: 700, lineHeight: 1.1, marginBottom: '1.5rem' }}>
+              Build <span style={{ background: 'var(--accent-glow)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Agentic RAG</span> in Minutes
+            </h1>
+            <p className="animate-fade-in" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', marginBottom: '3rem', animationDelay: '0.1s', animationFillMode: 'both', lineHeight: 1.6 }}>
+              Deploy production-ready retrieval systems over your proprietary data. Seamlessly scale from a free local prototype to a multi-modal enterprise architecture.
+            </p>
+            <div className="animate-fade-in" style={{ display: 'flex', gap: '1.5rem', animationDelay: '0.2s', animationFillMode: 'both' }}>
+              <button className="btn btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem' }} onClick={() => navigate('/auth')}>Start Building</button>
+              <button className="btn btn-secondary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem' }} onClick={() => document.getElementById('how-it-works').scrollIntoView({ behavior: 'smooth' })}>How it Works</button>
+            </div>
+          </div>
+          
+          {/* Galaxy Canvas Visualization */}
+          <div className="animate-fade-in" style={{ flex: '1 1 400px', display: 'flex', justifyContent: 'center', animationDelay: '0.3s', animationFillMode: 'both' }}>
+            <GalaxyAnimation />
           </div>
         </main>
 
