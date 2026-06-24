@@ -67,7 +67,7 @@ class SendChatMessageUseCase:
         # Save Messages
         now = datetime.utcnow()
         user_message = ChatMessage(id=uuid.uuid4(), session_id=session.id, role=MessageRole.USER, content=message_content, created_at=now)
-        assistant_message = ChatMessage(id=uuid.uuid4(), session_id=session.id, role=MessageRole.ASSISTANT, content=response.answer, created_at=now, tokens_used=response.tokens_used.total_tokens, sources=response.sources)
+        assistant_message = ChatMessage(id=uuid.uuid4(), session_id=session.id, role=MessageRole.ASSISTANT, content=response.answer, created_at=now, tokens_used=response.tokens_used.total_tokens, sources=sources)
         
         session.add_message(user_message)
         session.add_message(assistant_message)

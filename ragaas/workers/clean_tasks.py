@@ -17,13 +17,13 @@ class DummyLLM:
     def generate_embedding(self, *args, **kwargs): return [0.1, 0.2, 0.3]
     def generate_answer(self, *args, **kwargs):
         from ragaas.domain.value_objects import LLMResponse, TokenUsage
-        return LLMResponse(answer="This is a simulated AI response. The clean architecture pipeline is working correctly from start to finish!", tokens_used=TokenUsage(prompt_tokens=10, completion_tokens=15, total_tokens=25), sources=[])
+        return LLMResponse(answer="This is a simulated AI response. The clean architecture pipeline is working correctly from start to finish!", latency_ms=450, tokens_used=TokenUsage(prompt_tokens=10, completion_tokens=15, total_tokens=25), sources=[])
 
 class DummyVectorStore:
     def upsert_chunks(self, *args, **kwargs): pass
     def search_similar(self, *args, **kwargs):
         from ragaas.domain.value_objects import SourceReference
-        return [SourceReference(document_id=uuid.uuid4(), chunk_text="Dummy context chunk from vector db.", score=0.95, filename="sample.pdf", page_number=1)]
+        return [SourceReference(document_id=uuid.uuid4(), chunk_text="Dummy context chunk from vector db.", score=0.95, filename="sample.pdf")]
 class DummyBilling:
     def report_usage(self, *args, **kwargs): pass
 
