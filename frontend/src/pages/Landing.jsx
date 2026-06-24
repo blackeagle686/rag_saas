@@ -17,7 +17,7 @@ const Landing = () => {
     canvas.height = height;
     
     let particles = [];
-    const numParticles = 80; // Adjust for density
+    const numParticles = 25; // Drastically reduced for performance
     
     class Particle {
       constructor() {
@@ -152,8 +152,8 @@ const Landing = () => {
         </nav>
 
         {/* Hero Banner */}
-        <main style={{ padding: '8rem 5% 5rem', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1200px', margin: '0 auto', gap: '2rem', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 500px', textAlign: 'left' }}>
+        <main style={{ padding: '8rem 5% 5rem', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', maxWidth: '1400px', margin: '0 auto', gap: '2rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 450px', textAlign: 'left', zIndex: 10 }}>
             <h1 className="animate-fade-in" style={{ fontSize: '4.5rem', fontFamily: 'var(--font-display)', fontWeight: 700, lineHeight: 1.1, marginBottom: '1.5rem' }}>
               Build <span style={{ background: 'var(--accent-glow)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Agentic RAG</span> in Minutes
             </h1>
@@ -167,7 +167,7 @@ const Landing = () => {
           </div>
           
           {/* Galaxy Canvas Visualization */}
-          <div className="animate-fade-in" style={{ flex: '1 1 400px', display: 'flex', justifyContent: 'center', animationDelay: '0.3s', animationFillMode: 'both' }}>
+          <div className="animate-fade-in" style={{ flex: '1 1 650px', display: 'flex', justifyContent: 'center', animationDelay: '0.3s', animationFillMode: 'both' }}>
             <GalaxyAnimation />
           </div>
         </main>
