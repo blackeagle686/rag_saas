@@ -57,3 +57,14 @@ class EmbeddingConfig:
     model: str
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+
+class MessageRole(str, Enum):
+    USER = 'user'
+    ASSISTANT = 'assistant'
+    SYSTEM = 'system'
+
+class Platform(str, Enum):
+    WEB_WIDGET = 'web_widget'
+    SLACK = 'slack'
+    TEAMS = 'teams'
+    API = 'api'
