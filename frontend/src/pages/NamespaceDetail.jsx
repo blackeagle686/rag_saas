@@ -513,7 +513,7 @@ const NamespaceDetail = () => {
                     <button className="btn btn-secondary" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/bot/${activeNamespace.id || activeNamespace.name}`); setAlert({type:'success', message:'Copied!'}) }}>Copy Link</button>
                     <button className="btn btn-primary" onClick={() => window.open(`/bot/${activeNamespace.id || activeNamespace.name}`, '_blank')}>Open Template</button>
                   </div>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Share this link with end-users. (Tip: Append <code>?key=YOUR_API_KEY</code> to the URL to securely embed access).</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Share this public link directly with your end-users. No API key setup required.</p>
                 </div>
 
                 <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)' }}>
